@@ -8,10 +8,14 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Move to the next feature unit.
+- Feature 02: Editor Chrome — top navbar and floating project sidebar shell.
 
 ## Completed
 
+- Feature 02: Editor Chrome
+  - Added `components/editor/editor-navbar.tsx`: fixed-height navbar with left/center/right sections, sidebar toggle using `PanelLeftOpen`/`PanelLeftClose`, dark background with subtle bottom border
+  - Added `components/editor/project-sidebar.tsx`: floating overlay sidebar (does not push content), slides in from the left, header with title + close button, `My Projects` / `Shared` tabs with empty placeholder states, full-width `New Project` button with `Plus` icon
+  - Dialog pattern is available via shadcn `Dialog` primitives (title, description, footer) — no concrete dialogs built yet
 - Feature 01: Design System
   - Installed and configured shadcn/ui (Radix Nova, Tailwind v4, CSS variables)
   - Added components: Button, Card, Dialog, Input, Tabs, Textarea, ScrollArea → `components/ui/`
