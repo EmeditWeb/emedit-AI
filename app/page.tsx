@@ -1,9 +1,7 @@
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 
-
-export default function Home() {
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <p>Emedit AI</p>
-    </div>
-  );
+export default async function Home() {
+  const { userId } = await auth();
+  redirect(userId ? "/editor" : "/sign-in");
 }
