@@ -16,6 +16,7 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
     <aside
       data-state={isOpen ? "open" : "closed"}
       aria-hidden={!isOpen}
+      inert={!isOpen}
       className={cn(
         "pointer-events-none fixed top-14 left-3 bottom-3 z-40 flex w-72 flex-col overflow-hidden rounded-2xl border border-surface-border bg-surface/95 shadow-2xl backdrop-blur-md transition-transform duration-200 ease-out",
         isOpen
