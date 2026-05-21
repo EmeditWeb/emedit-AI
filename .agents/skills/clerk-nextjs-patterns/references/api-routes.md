@@ -27,7 +27,7 @@ export async function DELETE(req: Request) {
   const { isAuthenticated, has } = await auth();
   if (!isAuthenticated) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const isAdmin = await has({ role: 'org:admin' });
+  const isAdmin = has({ role: 'org:admin' });
   if (!isAdmin) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   return Response.json({ success: true });

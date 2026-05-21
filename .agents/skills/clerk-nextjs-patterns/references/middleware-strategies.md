@@ -95,6 +95,9 @@ Token types: `'session_token'` (default, browser sessions), `'oauth_token'`, `'a
 When session tasks are enabled (e.g., forced password reset, MFA setup), users may have a `pending` session status. You can handle this in middleware:
 
 ```typescript
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+
 export default clerkMiddleware(async (auth, req) => {
   const { sessionStatus } = await auth();
 
