@@ -6,38 +6,34 @@ import { EditorNavbar } from "@/components/editor/editor-navbar";
 import { ProjectActionsProvider } from "@/components/editor/project-actions-context";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
-import { useProjectDialogs } from "@/hooks/use-project-dialogs";
-import { useProjects } from "@/hooks/use-projects";
+import { useProjectActions } from "@/hooks/use-project-actions";
+import type { ProjectSummary } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 
 interface EditorChromeProps {
+  owned: ReadonlyArray<ProjectSummary>;
+  shared: ReadonlyArray<ProjectSummary>;
   children: ReactNode;
 }
 
-export function EditorChrome({ children }: EditorChromeProps) {
+export function EditorChrome({ owned, shared, children }: EditorChromeProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const projects = useProjects();
-
-  const dialogs = useProjectDialogs({
-    onCreate: projects.create,
-    onRename: projects.rename,
-    onDelete: projects.remove,
-  }); 
+  const actions = useProjectActions();
 
   const contextValue = useMemo(
     () => ({
-      owned: projects.owned,
-      shared: projects.shared,
-      openCreate: dialogs.openCreate,
-      openRename: dialogs.openRename,
-      openDelete: dialogs.openDelete,
+      owned,
+      shared,
+      openCreate: actions.openCreate,
+      openRename: actions.openRename,
+      openDelete: actions.openDelete,
     }),
     [
-      projects.owned,
-      projects.shared,
-      dialogs.openCreate,
-      dialogs.openRename,
-      dialogs.openDelete,
+      owned,
+      shared,
+      actions.openCreate,
+      actions.openRename,
+      actions.openDelete,
     ],
   );
 
@@ -69,7 +65,7 @@ export function EditorChrome({ children }: EditorChromeProps) {
           <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
         </div>
 
-        <ProjectDialogs state={dialogs} />
+        <ProjectDialogs state={actions} />
       </div>
     </ProjectActionsProvider>
   );

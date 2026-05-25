@@ -12,13 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { isValidProjectName, slugify } from "@/lib/projects";
-import type { useProjectDialogs } from "@/hooks/use-project-dialogs";
-
-type ProjectDialogsState = ReturnType<typeof useProjectDialogs>;
+import { isValidProjectName } from "@/lib/projects";
+import type { UseProjectActionsResult } from "@/hooks/use-project-actions";
 
 interface ProjectDialogsProps {
-  state: ProjectDialogsState;
+  state: UseProjectActionsResult;
 }
 
 export function ProjectDialogs({ state }: ProjectDialogsProps) {
@@ -32,16 +30,13 @@ export function ProjectDialogs({ state }: ProjectDialogsProps) {
 }
 
 function CreateProjectDialog({ state }: ProjectDialogsProps) {
-  const { mode, name, setName, isLoading, close, submit } = state;
+  const { mode, name, setName, isLoading, close, submit, roomIdPreview } =
+    state;
   const open = mode === "create";
-  const slug = slugify(name);
-  const slugPreview = slug || "your-project";
-  const isNameValid = isValidProjectName(name);
-  const showInvalidHint = name.trim().length > 0 && !isNameValid;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isNameValid || isLoading) return;
+    if (isLoading) return;
     void submit();
   };
 
@@ -71,23 +66,18 @@ function CreateProjectDialog({ state }: ProjectDialogsProps) {
 
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-copy-secondary">
-              Slug preview
+              Room ID
             </span>
             <code className="rounded-md border border-surface-border bg-base px-2 py-1.5 font-mono text-xs text-copy-muted">
-              {slugPreview}
+              {roomIdPreview}
             </code>
-            {showInvalidHint ? (
-              <span className="text-xs text-destructive">
-                Project name must include letters or numbers.
-              </span>
-            ) : null}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!isNameValid || isLoading}>
+            <Button type="submit" disabled={isLoading}>
               {isLoading ? "Creating…" : "Create project"}
             </Button>
           </DialogFooter>

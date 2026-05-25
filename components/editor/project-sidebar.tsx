@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { useProjectActions } from "@/components/editor/project-actions-context";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { MockProject } from "@/lib/projects";
+import type { ProjectSummary } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 
 interface ProjectSidebarProps {
@@ -88,7 +88,7 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 }
 
 interface ProjectListProps {
-  projects: ReadonlyArray<MockProject>;
+  projects: ReadonlyArray<ProjectSummary>;
 }
 
 function ProjectList({ projects }: ProjectListProps) {
@@ -102,7 +102,7 @@ function ProjectList({ projects }: ProjectListProps) {
 }
 
 interface ProjectRowProps {
-  project: MockProject;
+  project: ProjectSummary;
 }
 
 function ProjectRow({ project }: ProjectRowProps) {
