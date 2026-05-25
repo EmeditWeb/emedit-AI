@@ -204,7 +204,7 @@ Returns: OrganizationInvitation object
 
 ## How to execute requests
 
-**ALWAYS execute requests with direct `curl` commands.** Use the spec-extraction scripts (`api-specs-context.sh`, `extract-tags.js`, `extract-endpoint-detail.sh`) to discover endpoints, but make actual API calls with `curl`. Do NOT use `scripts/execute-request.sh` — it's a local dev helper, not for agent use.
+**ALWAYS execute requests with direct `curl` commands.** Use the spec-extraction scripts (`api-specs-context.sh`, `extract-tags.js`, `extract-endpoint-detail.sh`) to discover endpoints, but make actual API calls with `curl`. Do NOT use `scripts/execute-request.sh` — it is a **local development/testing helper only** (not for agent runtime). Because `scripts/execute-request.sh` is the place that normally enforces `CLERK_BAPI_SCOPES` validation for write/delete operations, **agents must replicate those scope checks themselves** when constructing curl requests: before any POST/PATCH/PUT/DELETE, run the mandatory checks in the "Mandatory checks before EVERY write request" section above (verify `CLERK_SECRET_KEY`, inspect `CLERK_BAPI_SCOPES` for the required write permission, and warn/confirm on DELETE). Do not rely on the script to gate the call — gate it in your own logic.
 
 Template for GET requests:
 ```bash

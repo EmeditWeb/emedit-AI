@@ -1,9 +1,13 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
+import { useProjectActions } from "@/components/editor/project-actions-context";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { MockProject } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 
 interface ProjectSidebarProps {
@@ -12,6 +16,8 @@ interface ProjectSidebarProps {
 }
 
 export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
+  const { owned, shared, openCreate } = useProjectActions();
+
   return (
     <aside
       data-state={isOpen ? "open" : "closed"}
@@ -46,28 +52,202 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          value="my"
-          className="flex min-h-0 flex-1 items-center justify-center"
-        >
-          <EmptyState message="No projects yet" />
+        <TabsContent value="my" className="flex min-h-0 flex-1 flex-col">
+          {owned.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center">
+              <EmptyState message="No projects yet" />
+            </div>
+          ) : (
+            <ProjectList projects={owned} />
+          )}
         </TabsContent>
 
-        <TabsContent
-          value="shared"
-          className="flex min-h-0 flex-1 items-center justify-center"
-        >
-          <EmptyState message="Nothing shared with you" />
+        <TabsContent value="shared" className="flex min-h-0 flex-1 flex-col">
+          {shared.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center">
+              <EmptyState message="Nothing shared with you" />
+            </div>
+          ) : (
+            <ProjectList projects={shared} />
+          )}
         </TabsContent>
       </Tabs>
 
       <div className="border-t border-surface-border p-3">
-        <Button variant="outline" className="w-full justify-center gap-2">
+        <Button
+          variant="outline"
+          className="w-full justify-center gap-2"
+          onClick={openCreate}
+        >
           <Plus className="h-4 w-4" />
           New Project
         </Button>
       </div>
     </aside>
+  );
+}
+
+interface ProjectListProps {
+  projects: ReadonlyArray<MockProject>;
+}
+
+function ProjectList({ projects }: ProjectListProps) {
+  return (
+    <ul className="flex flex-col gap-0.5 py-2">
+      {projects.map((project) => (
+        <ProjectRow key={project.id} project={project} />
+      ))}
+    </ul>
+  );
+}
+
+interface ProjectRowProps {
+  project: MockProject;
+}
+
+function ProjectRow({ project }: ProjectRowProps) {
+  const { openRename, openDelete } = useProjectActions();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  const closeMenu = () => setMenuPos(null);
+
+  const toggleMenu = () => {
+    if (menuPos) {
+      closeMenu();
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 144;
+    setMenuPos({
+      top: rect.bottom + 4,
+      left: Math.max(8, rect.right - menuWidth),
+    });
+  };
+
+  return (
+    <li className="group flex items-center gap-1 rounded-md pr-1 hover:bg-accent-dim">
+      <button
+        type="button"
+        className="flex flex-1 items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm text-copy-primary"
+      >
+        <span className="truncate">{project.name}</span>
+      </button>
+
+      {project.ownedByCurrentUser && (
+        <Button
+          ref={buttonRef}
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Actions for ${project.name}`}
+          aria-expanded={menuPos !== null}
+          onClick={toggleMenu}
+          className={cn(
+            "opacity-0 group-hover:opacity-100 aria-expanded:opacity-100",
+            menuPos && "opacity-100",
+          )}
+        >
+          <MoreHorizontal className="h-3.5 w-3.5 text-copy-secondary" />
+        </Button>
+      )}
+
+      {menuPos && (
+        <RowMenuPortal
+          top={menuPos.top}
+          left={menuPos.left}
+          onClose={closeMenu}
+          onRename={() => {
+            closeMenu();
+            openRename(project);
+          }}
+          onDelete={() => {
+            closeMenu();
+            openDelete(project);
+          }}
+        />
+      )}
+    </li>
+  );
+}
+
+interface RowMenuPortalProps {
+  top: number;
+  left: number;
+  onClose: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}
+
+function RowMenuPortal({
+  top,
+  left,
+  onClose,
+  onRename,
+  onDelete,
+}: RowMenuPortalProps) {
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <>
+      <div
+        className="fixed inset-0 z-[60]"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        role="menu"
+        style={{ top, left }}
+        className="fixed z-[61] w-36 overflow-hidden rounded-md border border-surface-border bg-surface shadow-lg"
+      >
+        <MenuItem
+          icon={<Pencil className="h-3.5 w-3.5" />}
+          label="Rename"
+          onClick={onRename}
+        />
+        <MenuItem
+          icon={<Trash2 className="h-3.5 w-3.5" />}
+          label="Delete"
+          destructive
+          onClick={onDelete}
+        />
+      </div>
+    </>,
+    document.body,
+  );
+}
+
+interface MenuItemProps {
+  icon: React.ReactNode;
+  label: string;
+  destructive?: boolean;
+  onClick: () => void;
+}
+
+function MenuItem({ icon, label, destructive = false, onClick }: MenuItemProps) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-accent-dim",
+        destructive ? "text-destructive" : "text-copy-primary",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 

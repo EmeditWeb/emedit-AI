@@ -1,3 +1,6 @@
+'use client'
+
+import type React from 'react'
 import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

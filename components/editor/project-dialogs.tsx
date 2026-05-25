@@ -1,0 +1,193 @@
+"use client";
+
+import { type FormEvent } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { isValidProjectName, slugify } from "@/lib/projects";
+import type { useProjectDialogs } from "@/hooks/use-project-dialogs";
+
+type ProjectDialogsState = ReturnType<typeof useProjectDialogs>;
+
+interface ProjectDialogsProps {
+  state: ProjectDialogsState;
+}
+
+export function ProjectDialogs({ state }: ProjectDialogsProps) {
+  return (
+    <>
+      <CreateProjectDialog state={state} />
+      <RenameProjectDialog state={state} />
+      <DeleteProjectDialog state={state} />
+    </>
+  );
+}
+
+function CreateProjectDialog({ state }: ProjectDialogsProps) {
+  const { mode, name, setName, isLoading, close, submit } = state;
+  const open = mode === "create";
+  const slug = slugify(name);
+  const slugPreview = slug || "your-project";
+  const isNameValid = isValidProjectName(name);
+  const showInvalidHint = name.trim().length > 0 && !isNameValid;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!isNameValid || isLoading) return;
+    void submit();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? null : close())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create project</DialogTitle>
+          <DialogDescription>
+            Name your new architecture workspace.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-copy-secondary">
+              Project name
+            </span>
+            <Input
+              autoFocus
+              value={name}
+              placeholder="My architecture"
+              onChange={(event) => setName(event.target.value)}
+              className="text-copy-primary"
+            />
+          </label>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-copy-secondary">
+              Slug preview
+            </span>
+            <code className="rounded-md border border-surface-border bg-base px-2 py-1.5 font-mono text-xs text-copy-muted">
+              {slugPreview}
+            </code>
+            {showInvalidHint ? (
+              <span className="text-xs text-destructive">
+                Project name must include letters or numbers.
+              </span>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!isNameValid || isLoading}>
+              {isLoading ? "Creating…" : "Create project"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RenameProjectDialog({ state }: ProjectDialogsProps) {
+  const { mode, activeProject, name, setName, isLoading, close, submit } =
+    state;
+  const open = mode === "rename";
+  const isNameValid = isValidProjectName(name);
+  const showInvalidHint = name.trim().length > 0 && !isNameValid;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!isNameValid || isLoading) return;
+    void submit();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? null : close())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename project</DialogTitle>
+          <DialogDescription>
+            Renaming{" "}
+            <span className="font-medium text-copy-primary">
+              {activeProject?.name ?? ""}
+            </span>
+            .
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-copy-secondary">
+              Project name
+            </span>
+            <Input
+              autoFocus
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="text-copy-primary"
+            />
+            {showInvalidHint ? (
+              <span className="text-xs text-destructive">
+                Project name must include letters or numbers.
+              </span>
+            ) : null}
+          </label>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!isNameValid || isLoading}>
+              {isLoading ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteProjectDialog({ state }: ProjectDialogsProps) {
+  const { mode, activeProject, isLoading, close, submit } = state;
+  const open = mode === "delete";
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => (next ? null : close())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete project</DialogTitle>
+          <DialogDescription>
+            Delete{" "}
+            <span className="font-medium text-copy-primary">
+              {activeProject?.name ?? "this project"}
+            </span>
+            ? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isLoading}
+            onClick={() => void submit()}
+          >
+            {isLoading ? "Deleting…" : "Delete project"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

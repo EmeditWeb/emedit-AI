@@ -4,14 +4,25 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Phase 1: Foundation — Design System & UI Primitives
+- Phase 2: Project Workspace UI — Editor home, project list, project lifecycle dialogs (mock data, no persistence)
 
 ## Current Goal
 
-- Feature 03: Auth — wire Clerk into the app (provider, proxy, auth pages, redirects, user menu).
+- Feature 04: Project Dialogs & Editor Home — editor home screen, Create/Rename/Delete dialogs, sidebar actions (mock data, no persistence).
 
 ## Completed
 
+- Feature 04: Project Dialogs & Editor Home
+  - `app/editor/page.tsx` empty state: heading `Create a project or open an existing one`, description, `New Project` button with `Plus` icon — no card wrapper
+  - `hooks/use-projects.ts`: in-memory project state with `create`, `rename`, `remove` actions (seeded from `mockProjects` / `mockSharedProjects`); slug auto-regenerates on create/rename
+  - `hooks/use-project-dialogs.ts`: accepts `onCreate` / `onRename` / `onDelete` handlers and dispatches the correct mutation on `submit` based on the active mode; manages dialog mode, active project, name input, and loading state
+  - `components/editor/project-dialogs.tsx`: Create (live slug preview via `slugify`), Rename (prefilled, autofocus, Enter submits, current name in description), Delete (destructive confirm, no input, destructive button). Inputs use `text-copy-primary` so typed text is fully legible inside the popover
+  - `components/editor/project-actions-context.tsx`: exposes `owned`, `shared`, and `openCreate` / `openRename` / `openDelete` so the sidebar and editor home consume live project state and trigger dialogs without prop drilling
+  - `lib/projects.ts`: `slugify` helper + mock owned/shared seeds with `ownedByCurrentUser` flag
+  - Sidebar rows: portaled action menu (`createPortal` to `document.body`) so the popover is not clipped by per-row stacking contexts — fixes a bug where clicking Rename on the first row activated the next row's menu. Menu shows only for owned projects; shared rows render no action affordance
+  - Mobile backdrop scrim in `editor-chrome.tsx` (`lg:hidden`) — tapping outside closes the sidebar
+  - `New Project` buttons in both the sidebar and editor home open the Create dialog; submitting creates, renames, or deletes the project in-memory and updates the list immediately
+  - `npm run lint` clean; `tsc --noEmit` clean
 - Feature 03: Auth (Clerk)
   - Installed `@clerk/ui` for the `dark` theme preset
   - Wrapped root layout in `ClerkProvider` with `dark` theme and `appearance.variables` mapped to project CSS custom properties (`--bg-base`, `--bg-surface`, `--accent-primary`, etc.) — no hardcoded colors
