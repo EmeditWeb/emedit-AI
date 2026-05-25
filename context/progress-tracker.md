@@ -4,14 +4,30 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Phase 3: Data Layer — Prisma schema, client singleton, first migration.
+- Phase 4: Backend API — editor UI wired to real project API.
 
 ## Current Goal
 
-- Feature 05: Prisma Schema And Data Layer — project models, Prisma client, initial migration applied.
+- Feature 07: Wire Editor — server-side project fetch + `useProjectActions` hook driving create/rename/delete against `/api/projects`.
 
 ## Completed
 
+- Feature 07: Wire Editor
+  - `lib/projects-data.ts`: `getProjectsForCurrentUser()` reads `auth()` + `currentUser()`, fetches owned projects (`ownerId = userId`) and shared projects (`collaborators.some.email in user emails`, `ownerId != userId`) in parallel, returns `{ owned, shared }` as `ProjectSummary[]` with slug derived from name
+  - `app/editor/layout.tsx`: now an async server component — calls the data helper and passes `owned` / `shared` to `EditorChrome`. No client-side fetching on initial load
+  - `hooks/use-project-actions.ts`: single hook replacing `use-projects` + `use-project-dialogs`. Manages dialog mode, active project, name input, loading state, and a stable 6-char suffix used to derive the room ID (`slug(name) + "-" + suffix`). `submit` branches on mode: `POST /api/projects` with `{ id: roomId, name }` then `router.push("/editor/<id>")`; `PATCH /api/projects/[id]` then `router.refresh()`; `DELETE /api/projects/[id]` then `router.push("/editor")` if deleting the active workspace (read via `useParams().projectId`), otherwise `router.refresh()`
+  - `app/api/projects/route.ts`: `POST` now accepts optional `id` (validated against `/^[a-z0-9][a-z0-9-]{2,63}$/`, 400 on invalid) so the client-generated room ID is stored as `Project.id` — project ID and Liveblocks room ID stay aligned
+  - `components/editor/project-dialogs.tsx`: Create dialog shows `Room ID` preview (slug + suffix, suffix stable across keystrokes); Rename pre-fills current name; Delete shows project name. Create button no longer requires non-empty name — server defaults blank to `Untitled Project`
+  - `components/editor/editor-chrome.tsx`: accepts `owned` / `shared` props, calls `useProjectActions()` once, exposes `openCreate/openRename/openDelete` via the existing `ProjectActionsProvider`
+  - `lib/projects.ts`: `MockProject` renamed to `ProjectSummary`; mock seed arrays removed
+  - Removed `hooks/use-projects.ts` and `hooks/use-project-dialogs.ts`
+  - `npm run build` passes (TypeScript clean)
+- Feature 06: Project API
+  - `app/api/projects/route.ts`: `GET` lists current user's projects (filtered by `ownerId = auth().userId`, ordered by `createdAt desc`); `POST` creates a project, defaulting blank/missing `name` to `Untitled Project`, optional `description`, owner set from Clerk userId, ID strategy left to the schema's `cuid()` default
+  - `app/api/projects/[projectId]/route.ts`: `PATCH` renames (trimmed `name` required, 400 on empty) and `DELETE` removes a project; both load the project, return 404 if missing, 403 if `ownerId !== userId`
+  - All four routes return `401` for unauthenticated requests (`auth()` userId check before any DB work)
+  - Backend-only — no UI wiring; sidebar/dialogs still use the in-memory `use-projects` hook
+  - `npm run build` passes (TypeScript clean)
 - Feature 05: Prisma Schema And Data Layer
   - `prisma/models/project.prisma`: `Project` (ownerId, name, description?, status enum DRAFT/ARCHIVED, canvasJsonPath?, createdAt/updatedAt, indexes on `ownerId` and `createdAt`) and `ProjectCollaborator` (projectId with cascade delete, email, createdAt, unique on `[projectId, email]`, indexes on `email` and `[projectId, createdAt]`)
   - Multi-file schema via `prisma.config.ts` (`schema: "prisma/"`); base `prisma/schema.prisma` keeps generator + datasource only

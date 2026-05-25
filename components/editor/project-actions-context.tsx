@@ -2,14 +2,14 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { MockProject } from "@/lib/projects";
+import type { ProjectSummary } from "@/lib/projects";
 
 interface ProjectActions {
-  owned: ReadonlyArray<MockProject>;
-  shared: ReadonlyArray<MockProject>;
+  owned: ReadonlyArray<ProjectSummary>;
+  shared: ReadonlyArray<ProjectSummary>;
   openCreate: () => void;
-  openRename: (project: MockProject) => void;
-  openDelete: (project: MockProject) => void;
+  openRename: (project: ProjectSummary) => void;
+  openDelete: (project: ProjectSummary) => void;
 }
 
 const ProjectActionsContext = createContext<ProjectActions | null>(null);
