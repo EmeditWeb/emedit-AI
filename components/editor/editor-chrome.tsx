@@ -22,7 +22,7 @@ export function EditorChrome({ children }: EditorChromeProps) {
     onCreate: projects.create,
     onRename: projects.rename,
     onDelete: projects.remove,
-  });
+  }); 
 
   const contextValue = useMemo(
     () => ({
