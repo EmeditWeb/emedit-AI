@@ -33,10 +33,14 @@ function CreateProjectDialog({ state }: ProjectDialogsProps) {
   const { mode, name, setName, isLoading, close, submit, roomIdPreview } =
     state;
   const open = mode === "create";
+  const trimmed = name.trim();
+  const isNameValid = isValidProjectName(trimmed);
+  const hasUnslugifiableName = trimmed.length > 0 && !isNameValid;
+  const canSubmit = isNameValid && !isLoading;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isLoading) return;
+    if (!canSubmit) return;
     void submit();
   };
 
@@ -71,13 +75,18 @@ function CreateProjectDialog({ state }: ProjectDialogsProps) {
             <code className="rounded-md border border-surface-border bg-base px-2 py-1.5 font-mono text-xs text-copy-muted">
               {roomIdPreview}
             </code>
+            {hasUnslugifiableName ? (
+              <span className="text-xs text-destructive">
+                Project name must include letters or numbers.
+              </span>
+            ) : null}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={!canSubmit}>
               {isLoading ? "Creating…" : "Create project"}
             </Button>
           </DialogFooter>

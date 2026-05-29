@@ -18,11 +18,14 @@ export async function PATCH(request: Request, ctx: RouteContext) {
 
   const { projectId } = await ctx.params;
 
-  let body: UpdateProjectBody = {};
+  let body: UpdateProjectBody;
   try {
     body = (await request.json()) as UpdateProjectBody;
   } catch {
-    body = {};
+    return NextResponse.json(
+      { error: "Malformed JSON" },
+      { status: 400 },
+    );
   }
 
   const rawName = typeof body.name === "string" ? body.name.trim() : "";
@@ -38,12 +41,8 @@ export async function PATCH(request: Request, ctx: RouteContext) {
     select: { ownerId: true },
   });
 
-  if (!project) {
+  if (!project || project.ownerId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (project.ownerId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const updated = await prisma.project.update({
@@ -67,12 +66,8 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
     select: { ownerId: true },
   });
 
-  if (!project) {
+  if (!project || project.ownerId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (project.ownerId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await prisma.project.delete({ where: { id: projectId } });

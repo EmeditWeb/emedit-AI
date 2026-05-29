@@ -21,20 +21,30 @@ export interface UseProjectActionsResult {
   submit: () => Promise<void>;
 }
 
+const SUFFIX_LENGTH = 6;
+const MAX_ID_LENGTH = 64;
+const MAX_SLUG_LENGTH = MAX_ID_LENGTH - SUFFIX_LENGTH - 1;
+const CREATE_MAX_ATTEMPTS = 5;
+
 function generateSuffix(): string {
-  return Math.random().toString(36).slice(2, 8).padEnd(6, "0");
+  return Math.random()
+    .toString(36)
+    .slice(2, 2 + SUFFIX_LENGTH)
+    .padEnd(SUFFIX_LENGTH, "0");
 }
 
 function buildRoomId(name: string, suffix: string): string {
-  const slug = slugify(name) || "project";
+  const slug = (slugify(name) || "project")
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/-+$/, "") || "project";
   return `${slug}-${suffix}`;
 }
 
 export function useProjectActions(): UseProjectActionsResult {
   const router = useRouter();
-  const params = useParams<{ projectId?: string }>();
+  const params = useParams<{ roomId?: string }>();
   const activeWorkspaceId =
-    typeof params?.projectId === "string" ? params.projectId : undefined;
+    typeof params?.roomId === "string" ? params.roomId : undefined;
 
   const [mode, setMode] = useState<DialogMode>(null);
   const [activeProject, setActiveProject] = useState<ProjectSummary | null>(
@@ -81,19 +91,31 @@ export function useProjectActions(): UseProjectActionsResult {
     setIsLoading(true);
     try {
       if (mode === "create") {
-        const trimmed = name.trim();
-        const finalName = trimmed.length > 0 ? trimmed : "Untitled Project";
-        const id = buildRoomId(finalName, pendingSuffix);
-        const res = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name: finalName }),
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { project?: { id?: string } };
-        const newId = data.project?.id ?? id;
+        const finalName = name.trim();
+        if (finalName.length === 0 || slugify(finalName).length === 0) return;
+        let suffix = pendingSuffix;
+        let createdId: string | null = null;
+        for (let attempt = 0; attempt < CREATE_MAX_ATTEMPTS; attempt++) {
+          const id = buildRoomId(finalName, suffix);
+          const res = await fetch("/api/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, name: finalName }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { project?: { id?: string } };
+            createdId = data.project?.id ?? id;
+            break;
+          }
+          if (res.status === 409) {
+            suffix = generateSuffix();
+            continue;
+          }
+          return;
+        }
+        if (!createdId) return;
         close();
-        router.push(`/editor/${newId}`);
+        router.push(`/editor/${createdId}`);
         return;
       }
 

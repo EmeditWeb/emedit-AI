@@ -1,11 +1,25 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
+import { getUserProfileById } from "@/lib/collaborators";
 import { prisma } from "@/lib/prisma";
 import { slugify, type ProjectSummary } from "@/lib/projects";
+
+export interface PendingInvitation {
+  id: string;
+  projectId: string;
+  projectName: string;
+  invitedAt: string;
+  inviter: {
+    displayName: string | null;
+    email: string | null;
+    avatarUrl: string | null;
+  } | null;
+}
 
 interface ProjectListsResult {
   owned: ProjectSummary[];
   shared: ProjectSummary[];
+  invitations: PendingInvitation[];
 }
 
 interface ProjectRow {
@@ -28,7 +42,7 @@ function toSummary(
 export async function getProjectsForCurrentUser(): Promise<ProjectListsResult> {
   const { userId } = await auth();
   if (!userId) {
-    return { owned: [], shared: [] };
+    return { owned: [], shared: [], invitations: [] };
   }
 
   const user = await currentUser();
@@ -36,7 +50,7 @@ export async function getProjectsForCurrentUser(): Promise<ProjectListsResult> {
     user?.emailAddresses.map((entry) => entry.emailAddress).filter(Boolean) ??
     [];
 
-  const [ownedRows, sharedRows] = await Promise.all([
+  const [ownedRows, sharedRows, invitationRows] = await Promise.all([
     prisma.project.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: "desc" },
@@ -46,16 +60,57 @@ export async function getProjectsForCurrentUser(): Promise<ProjectListsResult> {
       ? prisma.project.findMany({
           where: {
             ownerId: { not: userId },
-            collaborators: { some: { email: { in: emails } } },
+            collaborators: {
+              some: { email: { in: emails }, status: "ACTIVE" },
+            },
           },
           orderBy: { createdAt: "desc" },
           select: { id: true, name: true },
         })
       : Promise.resolve<ProjectRow[]>([]),
+    emails.length > 0
+      ? prisma.projectCollaborator.findMany({
+          where: { email: { in: emails }, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            createdAt: true,
+            project: { select: { id: true, name: true, ownerId: true } },
+          },
+        })
+      : Promise.resolve<
+          {
+            id: string;
+            createdAt: Date;
+            project: { id: string; name: string; ownerId: string };
+          }[]
+        >([]),
   ]);
+
+  const inviterProfiles = await Promise.all(
+    invitationRows.map((row) => getUserProfileById(row.project.ownerId)),
+  );
+
+  const invitations: PendingInvitation[] = invitationRows.map((row, index) => {
+    const profile = inviterProfiles[index];
+    return {
+      id: row.id,
+      projectId: row.project.id,
+      projectName: row.project.name,
+      invitedAt: row.createdAt.toISOString(),
+      inviter: profile
+        ? {
+            displayName: profile.displayName,
+            email: profile.email,
+            avatarUrl: profile.avatarUrl,
+          }
+        : null,
+    };
+  });
 
   return {
     owned: ownedRows.map((row) => toSummary(row, true)),
     shared: sharedRows.map((row) => toSummary(row, false)),
+    invitations,
   };
 }

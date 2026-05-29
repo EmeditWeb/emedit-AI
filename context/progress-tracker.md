@@ -4,14 +4,51 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Phase 4: Backend API — editor UI wired to real project API.
+- Phase 5: Realtime — Liveblocks wired into the workspace via a collaborative React Flow canvas.
 
 ## Current Goal
 
-- Feature 07: Wire Editor — server-side project fetch + `useProjectActions` hook driving create/rename/delete against `/api/projects`.
+- Feature 11: Canvas — Liveblocks-backed React Flow canvas as the workspace surface.
 
 ## Completed
 
+- Feature 11: Canvas
+  - `types/canvas.ts`: `CanvasNodeShape` union (`rectangle | rounded | ellipse | diamond`), `CanvasNodeData { label; color; shape }` (extends `Record<string, unknown>` so it satisfies React Flow's node-data constraint), and the custom typed aliases `CanvasNode = Node<CanvasNodeData, "canvasNode">` / `CanvasEdge = Edge<Record<string, unknown>, "canvasEdge">`
+  - `components/editor/canvas.tsx`: client component. `LiveblocksProvider authEndpoint="/api/liveblocks-auth"` → `RoomProvider id={roomId} initialPresence={{ cursor: null, isThinking: false }}` (includes `isThinking` to satisfy the typed `Presence` from [[liveblocks-config]]) → `ClientSideSuspense` with a spinner fallback → `<CanvasFlow />`. Imports come from `@liveblocks/react/suspense`. Wraps the whole tree in a class-based `CanvasErrorBoundary` that surfaces connection errors via a small `AlertTriangle` panel
+  - `CanvasFlow` calls `useLiveblocksFlow<CanvasNode, CanvasEdge>({ suspense: true, nodes: { initial: [] }, edges: { initial: [] } })` and passes the synced `nodes`, `edges`, `onNodesChange`, `onEdgesChange`, `onConnect`, `onDelete` into `<ReactFlow>`. `connectionRadius={40}` for loose connection behavior, `fitView`, `colorMode="dark"`. Children: dot-pattern `<Background variant={Dots} gap={20} size={1.5} color="rgba(255,255,255,0.12)" />` and `<MiniMap pannable zoomable />`. No `<Controls>`, no custom node/edge renderers, no persistence, no AI — per scope limits
+  - Stylesheet imports: `@xyflow/react/dist/style.css`, `@liveblocks/react-ui/styles.css`, `@liveblocks/react-flow/styles.css`
+  - `components/editor/workspace-shell.tsx`: replaced the `CanvasBackdrop` placeholder (and its `Compass` hero copy) with `<Canvas roomId={project.id} />`. Project ID doubles as the Liveblocks room ID (alignment established in Feature 07). `AiSidebar` placeholder remains untouched
+  - `npm run build` passes (TypeScript clean)
+- Feature 10: Liveblocks
+  - `liveblocks.config.ts`: typed `Presence` (`cursor: { x, y } | null`, `isThinking: boolean`) and `UserMeta` (`id`, `info: { name, avatar?, color }`). Other globals (`Storage`, `RoomEvent`, `ThreadMetadata`, `RoomInfo`) declared as `Record<string, never>` to satisfy `@typescript-eslint/no-empty-object-type`
+  - `lib/liveblocks.ts`: `getLiveblocksClient()` returns a `globalThis`-cached `Liveblocks` node client (lazy init so build-time `collect page data` doesn't trip on missing `LIVEBLOCKS_SECRET_KEY`). `getCursorColorForUser(userId)` hashes the user ID and indexes into a fixed 12-color palette for deterministic per-user cursor color
+  - `app/api/liveblocks-auth/route.ts`: `POST` requires Clerk `auth()` (401 if absent), reads `room` from request body, calls `getProjectForAccess(roomId)` — returns 401 unauthenticated / 403 denied. On `ok`, ensures the Liveblocks room exists via `getRoom` + `createRoom({ defaultAccesses: [] })` (private by default); patches `usersAccesses[userId] = ["room:write"]` on the existing/created room so the caller can join. Issues an ID token via `liveblocks.identifyUser({ userId, groupIds: [] }, { userInfo: { name, avatar?, color } })`; `name` falls back to email then `"Anonymous"`, `avatar` is only set when Clerk returns one, `color` comes from `getCursorColorForUser(userId)`
+  - Added `@liveblocks/node` ^3.19.3 to dependencies
+  - `npm run build` passes (TypeScript clean)
+- Feature 09: Share Dialog
+  - `prisma/models/project.prisma`: added `CollaboratorStatus { PENDING, ACTIVE }` enum and `canShare Boolean @default(false)` field on `ProjectCollaborator`; `status` defaults to `ACTIVE` so legacy rows remain accessible. New composite index `[email, status]` for invitation lookups. Migration `20260529142232_add_collaborator_status_can_share` applied
+  - `lib/collaborators.ts`: `enrichCollaborators(emails)` via `clerkClient().users.getUserList({ emailAddress })`; new `getUserProfileById(userId)` for owner / inviter lookups. Both fall back to email-only / null on Clerk failure. No local user table
+  - `lib/project-access.ts`: `getProjectForAccess` now filters `collaborators` by `status: "ACTIVE"` — pending invitees cannot open the workspace until they accept
+  - `lib/projects-data.ts`: `getProjectsForCurrentUser()` returns `{ owned, shared, invitations }`. `shared` filters by `status: "ACTIVE"`. `invitations` queries `ProjectCollaborator` rows where `email in user.emails AND status = PENDING`, enriching with inviter profile via `getUserProfileById(project.ownerId)`
+  - `app/editor/layout.tsx` + `components/editor/editor-chrome.tsx` + `project-actions-context.tsx`: thread `invitations` through the layout → chrome → context
+  - `app/api/projects/[projectId]/collaborators/route.ts`: `resolvePermissions()` returns `{ isOwner, callerCollaborator }`. `GET` (owner OR active collaborator) returns `{ owner, collaborators, ownedByCurrentUser, canShare }` where each collaborator includes `id/status/canShare/displayName/avatarUrl`. `POST` allows owner OR active collaborator with `canShare=true`; sets `status="PENDING"` + `canShare=false`; rejects self-invites. `DELETE` uses the same permission gate. Pending records take part in the unique `[projectId,email]` constraint, returning 409 on duplicate invites
+  - `app/api/projects/[projectId]/collaborators/[collaboratorId]/route.ts`: `PATCH` (owner-only) toggles `canShare`
+  - `app/api/invitations/[invitationId]/route.ts`: `POST { action: "accept" | "reject" }` — recipient verified by email match. Accept → `status="ACTIVE"`; Reject → deletes the row. 409 if already resolved
+  - `components/editor/project-sidebar.tsx`: third tab `Invites` (auto-selected when invitations exist) with badge counter. `InvitationRow` shows project name + inviter display name; `Accept` posts `{action:"accept"}` and `router.refresh()` (the project then jumps into `Shared`); `Decline` posts `{action:"reject"}`
+  - `components/editor/share-dialog.tsx`: bug fix — re-added `useEffect(() => loadCollaborators(), [open])` because Radix doesn't invoke `onOpenChange(true)` for controlled opens, so the prior reset-only handler never triggered the fetch. Now also surfaces `PENDING` and `CAN SHARE` badges, `ShieldCheck` toggle (owner-only) to grant/revoke share permission per collaborator, and exposes the invite form to active collaborators whose `canShare=true`
+  - `npm run build` passes (TypeScript clean) after `npx prisma generate`
+- Feature 08: Editor Workspace
+  - `lib/project-access.ts`: `getCurrentIdentity()` returns `{ userId, emails }` from Clerk `auth()` + `currentUser()`; `getProjectForAccess(projectId)` resolves to `{ kind: "unauthenticated" | "denied" | "ok", project? }` after checking owner OR collaborator email match
+  - `components/editor/access-denied.tsx`: centered layout, `Lock` icon, short message, link back to `/editor`
+  - `components/editor/workspace-context.tsx`: client context holding `activeProject` + `isAiSidebarOpen` + `toggleAiSidebar` so the navbar, sidebar, and workspace shell stay in sync without prop drilling
+  - `components/editor/workspace-shell.tsx`: client component used by `/editor/[roomId]`. Calls `useEffect` to register the active project on mount (and clear on unmount). Renders the central canvas placeholder (dark background, centered message) and the right-side AI sidebar placeholder (slide-over panel, hidden by default)
+  - `components/editor/editor-navbar.tsx`: when active project present, shows project name in the center, `Share` + AI sidebar toggle buttons on the right. When no active project, navbar shows only the sidebar toggle and `UserButton`
+  - `components/editor/editor-chrome.tsx`: wraps children with `WorkspaceProvider` alongside the existing `ProjectActionsProvider`
+  - `components/editor/project-sidebar.tsx`: rows highlight when `project.id === activeProject.id` (background + accent text)
+  - `hooks/use-project-actions.ts`: route param renamed from `projectId` to `roomId` to match the new `[roomId]` segment
+  - `app/editor/[roomId]/page.tsx`: server component. Awaits `params`, calls `getProjectForAccess`. Redirects to `/sign-in` on `unauthenticated`, renders `<AccessDenied />` on `denied`, otherwise renders `<WorkspaceShell project={...} />`
+  - Scope held: no Liveblocks, no real canvas, no AI chat, no sharing behavior — placeholders only
+  - `npm run build` passes (TypeScript clean)
 - Feature 07: Wire Editor
   - `lib/projects-data.ts`: `getProjectsForCurrentUser()` reads `auth()` + `currentUser()`, fetches owned projects (`ownerId = userId`) and shared projects (`collaborators.some.email in user emails`, `ownerId != userId`) in parallel, returns `{ owned, shared }` as `ProjectSummary[]` with slug derived from name
   - `app/editor/layout.tsx`: now an async server component — calls the data helper and passes `owned` / `shared` to `EditorChrome`. No client-side fetching on initial load
@@ -23,7 +60,7 @@ Update this file whenever the current phase, active feature, or implementation s
   - Removed `hooks/use-projects.ts` and `hooks/use-project-dialogs.ts`
   - `npm run build` passes (TypeScript clean)
 - Feature 06: Project API
-  - `app/api/projects/route.ts`: `GET` lists current user's projects (filtered by `ownerId = auth().userId`, ordered by `createdAt desc`); `POST` creates a project, defaulting blank/missing `name` to `Untitled Project`, optional `description`, owner set from Clerk userId, ID strategy left to the schema's `cuid()` default
+  - `app/api/projects/route.ts`: `GET` lists current user's projects (filtered by `ownerId = auth().userId`, ordered by `createdAt desc`); `POST` creates a project — `name` is **required** (blank/missing returns 400), optional `description`, owner set from Clerk userId. ID strategy at Feature 06 was the schema's `cuid()` default — **superseded by Feature 07**, which adds an optional client-provided `id` for room-ID alignment (the `cuid()` default still applies only when no `id` is supplied)
   - `app/api/projects/[projectId]/route.ts`: `PATCH` renames (trimmed `name` required, 400 on empty) and `DELETE` removes a project; both load the project, return 404 if missing, 403 if `ownerId !== userId`
   - All four routes return `401` for unauthenticated requests (`auth()` userId check before any DB work)
   - Backend-only — no UI wiring; sidebar/dialogs still use the in-memory `use-projects` hook

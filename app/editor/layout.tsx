@@ -8,9 +8,9 @@ interface EditorLayoutProps {
 }
 
 export default async function EditorLayout({ children }: EditorLayoutProps) {
-  const { owned, shared } = await getProjectsForCurrentUser();
+  const { owned, shared, invitations } = await getProjectsForCurrentUser();
   return (
-    <EditorChrome owned={owned} shared={shared}>
+    <EditorChrome owned={owned} shared={shared} invitations={invitations}>
       {children}
     </EditorChrome>
   );
