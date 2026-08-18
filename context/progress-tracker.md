@@ -4,14 +4,30 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Phase 5: Realtime — Liveblocks wired into the workspace via a collaborative React Flow canvas.
+- Phase 5: Realtime — Liveblocks wired into the workspace via a collaborative React Flow canvas, with drag-to-create shape support, proper shape rendering, and node resizing + inline label editing.
 
 ## Current Goal
 
-- Feature 11: Canvas — Liveblocks-backed React Flow canvas as the workspace surface.
+- Feature 14: Node — resize handles on selected nodes + inline label editing (centered textarea, blur/Escape to close).
 
 ## Completed
 
+- Feature 14: Node (resize + inline label editing)
+  - `components/editor/canvas-node.tsx`: replaced the placeholder renderer with the full `CanvasNodeRenderer`. Adds `<NodeResizer isVisible={selected} minWidth={60} minHeight={40} color="rgba(0,200,212,0.8)" />` — handles show only on selection, min-size enforced, subtle cyan matching the dark canvas. Shape visuals (reused `ShapeOutline`) unchanged. Label stays centered (`flex items-center justify-center`); double-clicking anywhere on the node opens a `textarea` (`autoFocus`, `nopan nowheel` classes so typing never drags the node or pans the canvas, `resize-none`, centered text, dashed `brand` border, empty-label placeholder in the same centered spot). `Escape` closes via `onEndEdit`; `onBlur` closes and persists. Edit state is a single `editingId` in `CanvasFlow`, so only one node edits at a time
+  - `components/editor/canvas.tsx`: `NODE_TYPES` module const removed — `nodeTypes` is now built in `useMemo` per render so each node gets `isEditing`, `onStartEdit`, `onChangeLabel`, `onEndEdit`. Label writes go through `NodeReplaceChange` (`type: "replace"` with `{ ...current, data: { ...current.data, label } }`) via `onNodesChange` — verified `applyChanges` in `@xyflow/react` supports the `replace` branch, so labels stay connected to the Liveblocks sync flow. Resize dimensions flow through the existing `onNodesChange` `dimensions` change path (NodeResizer dispatches them natively)
+  - `npm run build` passes (TypeScript clean); `eslint` clean on touched files
+- Feature 13: Shape Rendering + Drag Preview
+  - `components/editor/shape-outline.tsx`: new shared `ShapeOutline` component. rectangle/pill/circle use CSS borders (rounded-md / rounded-full / 9999px), diamond/hexagon/cylinder render inline SVGs with `viewBox="0 0 100 100"` + `preserveAspectRatio="none"` so they scale with node size; `vectorEffect="non-scaling-stroke"` keeps strokes constant. Borders subtle at rest (2px, strokeOpacity 0.7) and brighter when `selected` (3px, opacity 1)
+  - `components/editor/canvas-node.tsx`: now renders `<ShapeOutline shape={data.shape} color={data.color} selected={selected} />` — the Feature 12 simple-rectangle placeholder is gone
+  - `components/editor/canvas.tsx`: `handleDragStart` (called from `ShapePanel` via new `onDragStart` prop) now also sets a `ghost` state. A fixed-position `DragGhost` overlay tracks the cursor via `onDragOver` client coords, centered on the pointer, sized to `SHAPE_DEFAULT_SIZES`, reusing `ShapeOutline` + the shape name label so the preview matches the drop node. Cleared on drop, dragend, or escape. Drop flow, panel layout, and ghost are unchanged otherwise
+  - `components/editor/shape-panel.tsx`: drag-start logic lifted out — buttons now call `onDragStart(event, { shape, ...SHAPE_DEFAULT_SIZES[shape] })` (panel layout untouched per scope)
+  - `npm run build` passes (TypeScript clean)
+- Feature 12: Shape
+  - `types/canvas.ts`: `CanvasNodeShape` union replaced with the spec's six shapes (`rectangle | diamond | circle | pill | cylinder | hexagon`). Added exported constants: `DEFAULT_NODE_COLOR = "#a78bfa"`, `SHAPE_DEFAULT_SIZES` (rectangle 160×80, diamond 140×120 — slightly larger for label room, circle 100×100 square, pill 160×60, cylinder 120×100, hexagon 140×100), `SHAPE_DRAG_MIME = "application/x-emedit-shape"`, and `ShapeDragPayload { shape, width, height }`
+  - `components/editor/shape-panel.tsx`: floating pill-shaped toolbar absolutely positioned at `bottom-4 left-1/2 -translate-x-1/2` over the canvas. Six `draggable` icon buttons (lucide `Square`, `Diamond`, `Circle`, `Pill`, `Cylinder`, `Hexagon`); `onDragStart` writes `SHAPE_DRAG_MIME` data containing the serialized `ShapeDragPayload` and sets `effectAllowed = "move"`. Outer wrapper is `pointer-events-none`, inner bar `pointer-events-auto` so it does not block canvas pan/zoom outside the bar
+  - `components/editor/canvas-node.tsx`: custom React Flow node renderer registered under the `canvasNode` type. Renders a simple bordered rectangle (border color = `data.color`) with the label centered and top/bottom `Handle`s — shape-specific visuals deferred to a later feature per spec (note: earlier draft implemented per-shape SVG outlines; trimmed back to the simple rectangle this unit requires)
+  - `components/editor/canvas.tsx`: wrapped `<CanvasFlow />` in `ReactFlowProvider` so `useReactFlow()` is available; added `nodeTypes={{ canvasNode: CanvasNodeRenderer }}`; added `onDragOver` (preventDefault + `dropEffect = "move"`) and `onDrop` handlers on the canvas wrapper div. On drop, reads `SHAPE_DRAG_MIME` payload, converts client coords via `screenToFlowPosition`, generates an ID as `${shape}-${Date.now()}-${counter}` (counter held in `useRef` and incremented per drop), and dispatches a `NodeChange<CanvasNode>` of `type: "add"` through `onNodesChange` (the Liveblocks-backed hook does not expose `setNodes`, so add-changes are the correct API). New node uses empty `label`, `DEFAULT_NODE_COLOR`, the dragged shape, and the payload's width/height. Renders `<ShapePanel />` inside the wrapper
+  - `npm run build` passes (TypeScript clean)
 - Feature 11: Canvas
   - `types/canvas.ts`: `CanvasNodeShape` union (`rectangle | rounded | ellipse | diamond`), `CanvasNodeData { label; color; shape }` (extends `Record<string, unknown>` so it satisfies React Flow's node-data constraint), and the custom typed aliases `CanvasNode = Node<CanvasNodeData, "canvasNode">` / `CanvasEdge = Edge<Record<string, unknown>, "canvasEdge">`
   - `components/editor/canvas.tsx`: client component. `LiveblocksProvider authEndpoint="/api/liveblocks-auth"` → `RoomProvider id={roomId} initialPresence={{ cursor: null, isThinking: false }}` (includes `isThinking` to satisfy the typed `Presence` from [[liveblocks-config]]) → `ClientSideSuspense` with a spinner fallback → `<CanvasFlow />`. Imports come from `@liveblocks/react/suspense`. Wraps the whole tree in a class-based `CanvasErrorBoundary` that surfaces connection errors via a small `AlertTriangle` panel
@@ -108,7 +124,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
-- None.
+- Shape interaction fixes + text annotations/fonts (completed, verified):
+  - **Connection handles**: all four sides were non-functional because the handles had no `id` — `getHandle()` in `@xyflow/system` resolves a null handle id to the **first** handle (`[...source, ...target]`), so every drag attached to the bottom source handle. Fixed by giving each handle a unique `id` (`target-top`, `target-left`, `source-bottom`, `source-right`) so `getHandle` returns the correct port. In the default Loose connection mode every handle now starts and ends connections (`isConnectableStart`/`isConnectableEnd` default true). Top/Left ports are `target`, Bottom/Right are `source`.
+  - **Text annotations**: double-clicking empty canvas creates a free-standing `shape: "text"` node (new `CanvasNodeShape` member) centered at the cursor, no outline, no handles, freely resizable (`keepAspectRatio={false}` for text), and it auto-enters inline edit mode via `setEditingId`. Detected with `onPaneClick` timing (this React Flow fork exposes `onPaneClick` but **no** `onPaneDoubleClick`), so `handlePaneClick` tracks the last click and fires `createTextNode` within 300ms/8px. `zoomOnDoubleClick={false}` so double-click doesn't also zoom.
+  - **Fonts**: 11 curated fonts self-hosted via `next/font/google` in new `components/editor/canvas-fonts.ts`, applied as CSS variables on the canvas wrapper. A `NodeToolbar` above any selected node shows a font `<select>`; the choice writes `data.font` through the same `replace` change path (`updateNodeData` generalizes the old `replaceLabel`). `fontCssVar()` maps the stored key to a CSS var; labels/textarea render with the chosen `fontFamily`. Data model extended with `CanvasNodeData.font`, `TEXT_NODE_COLOR`, `TEXT_DEFAULT_SIZE`.
+  - **Multiline labels**: label and textarea use `whiteSpace: "pre-wrap"` so pressing Enter in the textarea renders a real line break instead of collapsing to a space.
+  - **Font size**: `CanvasNodeData.fontSize` (optional) added; the toolbar gained a numeric Size input (8–96px, clamped). When set it overrides the width-derived auto scale (`data.fontSize ?? scaleFont(width)`); otherwise size keeps following node width.
+  - Earlier label/resize polish (carried into this entry): label font scales with node width via `scaleFont` and wraps (`wordBreak: "break-word"`, `overflow: hidden`, `lineHeight: 1.2`) instead of truncating to "…"; `<NodeResizer keepAspectRatio>` keeps shape nodes proportional so a circle stays round; a `no-scrollbar` `@utility` in `app/globals.css` hides the textarea scrollbar when pressing Enter.
+  - `types/canvas.ts`: `"text"` added to `CanvasNodeShape`; `ShapePanel` untouched (uses its own fixed 6-button list).
+  - `tsc --noEmit` + `eslint` + `npm run build` pass.
 
 ## Next Up
 

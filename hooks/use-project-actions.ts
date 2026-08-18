@@ -115,6 +115,7 @@ export function useProjectActions(): UseProjectActionsResult {
         }
         if (!createdId) return;
         close();
+        router.refresh();
         router.push(`/editor/${createdId}`);
         return;
       }
@@ -142,6 +143,7 @@ export function useProjectActions(): UseProjectActionsResult {
         close();
         if (activeWorkspaceId === targetId) {
           router.push("/editor");
+          router.refresh();
         } else {
           router.refresh();
         }

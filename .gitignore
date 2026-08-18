@@ -11,3 +11,5 @@ dist
 build
 
 /app/generated/prisma
+
+context/feature-specs

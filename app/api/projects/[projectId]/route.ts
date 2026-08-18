@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -50,6 +51,7 @@ export async function PATCH(request: Request, ctx: RouteContext) {
     data: { name: rawName },
   });
 
+  revalidatePath("/editor");
   return NextResponse.json({ project: updated });
 }
 
@@ -72,5 +74,6 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
   await prisma.project.delete({ where: { id: projectId } });
 
+  revalidatePath("/editor");
   return NextResponse.json({ success: true });
 }

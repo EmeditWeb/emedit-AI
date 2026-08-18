@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         description,
       },
     });
+    revalidatePath("/editor");
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     if (

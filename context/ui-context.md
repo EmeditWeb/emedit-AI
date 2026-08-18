@@ -37,6 +37,8 @@ Tailwind utility names map to these variables. Use `bg-base`, `bg-surface`, `tex
 
 Both fonts are loaded via `next/font/google` and applied as CSS variables on the `<html>` element. The base `body` uses Geist Sans with `antialiased`.
 
+Canvas annotations and node labels offer a curated font library (`components/editor/canvas-fonts.ts`). 11 additional fonts are self-hosted via `next/font/google` (Inter, Space Grotesk, Poppins, Nunito, Raleway, DM Sans, Playfair Display, Merriweather, JetBrains Mono, Caveat, Bebas Neue) and registered as CSS variables on the canvas wrapper. Node labels store their font key in `CanvasNodeData.font`; `fontCssVar()` maps the key to the matching CSS variable.
+
 ## Border Radius
 
 Radius increases with surface depth — smaller for inner elements, larger for outer containers.
