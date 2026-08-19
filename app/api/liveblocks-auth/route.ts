@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import type { RoomAccesses } from "@liveblocks/node";
 import { NextResponse } from "next/server";
 
 import { getUserProfileById } from "@/lib/collaborators";
@@ -38,19 +39,22 @@ export async function POST(request: Request) {
   const { project } = access;
   const liveblocks = getLiveblocksClient();
 
+  // The room grant is the authoritative permission boundary: a view-only
+  // collaborator gets presence (cursors) but cannot mutate storage, so the
+  // server rejects writes even if the client UI is bypassed.
+  const accesses: RoomAccesses[string] = project.canEdit
+    ? ["room:write"]
+    : ["room:read", "room:presence:write"];
+
   const existing = await liveblocks.getRoom(project.id).catch(() => null);
   if (!existing) {
     await liveblocks.createRoom(project.id, {
       defaultAccesses: [],
-      usersAccesses: {
-        [userId]: ["room:write"],
-      },
+      usersAccesses: { [userId]: accesses },
     });
   } else {
     await liveblocks.updateRoom(project.id, {
-      usersAccesses: {
-        [userId]: ["room:write"],
-      },
+      usersAccesses: { [userId]: accesses },
     });
   }
 

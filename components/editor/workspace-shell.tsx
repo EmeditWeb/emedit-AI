@@ -5,6 +5,10 @@ import { useEffect } from "react";
 
 import { Canvas } from "@/components/editor/canvas";
 import {
+  SmallScreenGate,
+  useIsBelowMinWidth,
+} from "@/components/editor/small-screen-gate";
+import {
   useWorkspace,
   type ActiveProject,
 } from "@/components/editor/workspace-context";
@@ -22,6 +26,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps) {
     closeAiSidebar,
     isProjectSidebarOpen,
   } = useWorkspace();
+  const isBelowMinWidth = useIsBelowMinWidth();
+  const isBlocked = isBelowMinWidth === true;
 
   useEffect(() => {
     setActiveProject(project);
@@ -31,6 +37,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps) {
   return (
     <div className="relative h-full w-full">
       <div
+        // Keyboard focus must not reach the canvas behind the gate.
+        inert={isBlocked}
         className={cn(
           "h-full transition-[padding] duration-200 ease-out",
           "p-3",
@@ -39,11 +47,12 @@ export function WorkspaceShell({ project }: WorkspaceShellProps) {
         )}
       >
         <section className="relative h-full w-full overflow-hidden rounded-2xl border border-surface-border bg-surface/40 shadow-2xl shadow-black/30">
-          <Canvas roomId={project.id} />
+          <Canvas roomId={project.id} canEdit={project.canEdit} />
         </section>
       </div>
 
       <AiSidebar isOpen={isAiSidebarOpen} onClose={closeAiSidebar} />
+      <SmallScreenGate />
     </div>
   );
 }

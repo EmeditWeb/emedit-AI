@@ -57,7 +57,7 @@ Radius increases with surface depth — smaller for inner elements, larger for o
 
 | Node fill | Text color | Character              |
 | --------- | ---------- | ---------------------- |
-| `#1F1F1F` | `#EDEDED`  | Neutral dark (default) |
+| `#000000` | `#FFFFFF`  | Black (default)        |
 | `#10233D` | `#52A8FF`  | Blue                   |
 | `#2E1938` | `#BF7AF0`  | Purple                 |
 | `#331B00` | `#FF990A`  | Orange                 |
@@ -66,7 +66,9 @@ Radius increases with surface depth — smaller for inner elements, larger for o
 | `#0F2E18` | `#62C073`  | Green                  |
 | `#062822` | `#0AC7B4`  | Teal                   |
 
-Default node color: `#1F1F1F` with `#EDEDED` text.
+Default node color: `#000000` fill with `#FFFFFF` text — new nodes are black with white labels.
+
+Node data stores the pair as two fields: `color` (shape outline + label text) and `bg` (shape fill). Selected nodes show a floating pill toolbar above them (`components/editor/node-style-toolbar.tsx`) carrying the font picker, font size, and one round swatch per pair — active swatch ringed, hovered swatch given a tight glow in its text color.
 
 ### Edge Style
 
@@ -75,6 +77,8 @@ Smooth-step path with an arrow marker. Default edge color: `#f8fafc`. Stroke wid
 ### Node Shapes
 
 6 supported shapes, defined in `types/canvas.ts` as `NODE_SHAPES`. Complex shapes (diamond, hexagon, cylinder) are rendered as inline SVGs rather than CSS borders.
+
+Shape outlines are hairlines — 1px at 55% of the accent color at rest, 1.5px at 90% when selected — so the fill and label carry the node, not its edge. The cylinder's cap line sits lighter still (70% of the outline). Selection shows no bounding rectangle: the `NodeResizer` lines are transparent, leaving only the corner handles.
 
 - `rectangle` — default general-purpose node
 - `diamond` — decision / gateway
@@ -85,7 +89,9 @@ Smooth-step path with an arrow marker. Default edge color: `#f8fafc`. Stroke wid
 
 ### Connection Handles
 
-Small white circular handles, hidden by default, revealed on node hover. Appear at all four sides of a node.
+Small (7px) round cyan handles at all four sides of a node, each sitting in a 16px invisible grab target so connections are easy to start. Hidden (`opacity: 0`) until the node is selected, then faded in — they keep their pointer events while hidden so dragging a connection off an unselected node still works. Text annotations have no handles.
+
+The canvas runs in `ConnectionMode.Loose`, so every handle both starts and accepts a connection: any side of any node can connect to any side of another, and edges leave from the side you actually used instead of detouring to a fixed source handle.
 
 ### Canvas Background
 

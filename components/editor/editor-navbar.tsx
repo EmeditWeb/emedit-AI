@@ -2,6 +2,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import {
+  LayoutTemplate,
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
@@ -21,6 +22,7 @@ export function EditorNavbar() {
     toggleAiSidebar,
     isProjectSidebarOpen,
     toggleProjectSidebar,
+    openStarterTemplates,
   } = useWorkspace();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const ToggleIcon = isProjectSidebarOpen ? PanelLeftClose : PanelLeftOpen;
@@ -52,6 +54,20 @@ export function EditorNavbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        {activeProject?.canEdit && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={openStarterTemplates}
+              className="gap-1.5 border border-surface-border/70 bg-surface/50 backdrop-blur-md"
+              aria-label="Open starter templates"
+            >
+              <LayoutTemplate className="h-3.5 w-3.5 text-copy-secondary" />
+              <span className="text-copy-primary">Templates</span>
+            </Button>
+          </>
+        )}
         {activeProject && (
           <>
             <Button

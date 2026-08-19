@@ -4,15 +4,72 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Phase
 
-- Phase 5: Realtime — Liveblocks wired into the workspace via a collaborative React Flow canvas, with drag-to-create shape support, proper shape rendering, and node resizing + inline label editing.
+- Phase 5: Realtime — Liveblocks wired into the workspace via a collaborative React Flow canvas, with drag-to-create shape support, proper shape rendering, node resizing + inline label editing, free-standing text annotations, a floating node style toolbar (font, size, color themes), edge labels, zoom/undo-redo controls + keyboard shortcuts, and an importable starter-template library.
 
 ## Current Goal
 
-- Feature 14: Node — resize handles on selected nodes + inline label editing (centered textarea, blur/Escape to close).
+- Starter Template Library — importable prebuilt diagrams opened from the editor navbar, with lightweight SVG previews and canvas-replacing import.
 
 ## Completed
 
-- Feature 14: Node (resize + inline label editing)
+- Room presence: collaborator avatars + live cursors (canvas view only)
+  - `liveblocks.config.ts`: presence type now `{ cursor: { x, y } | null; thinking: boolean }` — `isThinking` renamed to `thinking` to match the presence contract. `cursor` is the key the React Flow cursors layer writes to and reads from.
+  - `components/editor/presence-overlay.tsx` (new): the presence group pinned to the canvas top-right (`absolute top-3 right-3`, above the flow). Resolves the current user via Clerk `useUser()` and filters the Liveblocks `useOthers()` list to exclude `other.id === user.id` (the auth route already identifies Liveblocks users with the Clerk user id, so the IDs line up). Renders up to 5 overlapping collaborator avatars (photo via `<img>` when `other.info.avatar` exists, else initials on the participant's `color`), a `+N` overflow chip past 5, a 1px divider only when at least one collaborator exists, then the Clerk `UserButton` for the current user — same `h-7 w-7` size as the avatars. Avatars are display-only (`title` tooltip, no handlers); avatars/chip carry a dark `ring-2 ring-[#0a0a12]` so the stack stays readable on the dark canvas. Rendered inside `CanvasFlow`'s wrapper, so it exists only in the room view — the shared navbar is untouched.
+  - `components/editor/canvas.tsx`: added the bundled `<Cursors />` component (from `@liveblocks/react-flow`) as a child of `<ReactFlow>`. It broadcasts the current user's cursor via `useUpdateMyPresence` on `pointermove` (converting screen→flow coords with `screenToFlowPosition`, skipped while panning), clears to `null` on pointer leave/blur, and renders only *other* participants' cursors (from `useOthersConnectionIds`), positioned through the live viewport transform with a spring. Each cursor reuses the `@liveblocks/react-ui` `Cursor` (colored pointer + name badge), colored from `user.info.color` set by the auth route's `getCursorColorForUser`. `RoomProvider initialPresence` updated to `{ cursor: null, thinking: false }`.
+  - `tsc --noEmit`, `eslint`, and `npm run build` all pass.
+
+- Starter Template Library (spec provided by the user)
+  - `components/editor/starter-templates.ts` (new): `CanvasTemplate { id, name, description, nodes, edges }` + `CANVAS_TEMPLATES` with 10 templates — Microservices, CI/CD Pipeline, Event-Driven, Auth Flow, API Gateway, Rate Limiting, Sliding Window, Next.js, NestJS, Payment Gateway. Built with tiny helpers `node()`/`text()`/`edge()` that wrap the shared `types/canvas.ts` types, `NODE_COLORS` pairs, `SHAPE_DEFAULT_SIZES`, `TEXT_DEFAULT_SIZE`, `TEXT_NODE_COLOR`, and `DEFAULT_FONT_KEY`, so imported nodes/edges match the canvas data model exactly. `node()` derives `color`/`bg` from `NODE_COLORS` by key; text-title nodes and labeled edges are supported.
+  - `components/editor/starter-templates-modal.tsx` (new): an `Import Template` dialog (`rounded-2xl`) with a bold heading, a short "…any existing nodes will be replaced, use ⌘Z to undo" subtitle, and a custom close button that clears the modal edge. The grid is horizontally oriented — `grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]` with `gap-7` — so cards hold a 240px floor and the column count degrades on its own (5 → 4 → 3 → 2 → 1) instead of squeezing card width. Verified in a headless Chromium render at 1920/1440/1280/1024/768: 5/5/4/3/2 columns, card width 245–306px, every title on one line, no clipped descriptions, and `document.scrollWidth === window.innerWidth` at all five widths (no horizontal scroll). Each card is a rounded surface with inset highlight + drop shadow: a large pure-SVG preview (side-anchored, source-colored curved edges, filled shapes, dotted canvas background), the description, and a full-width primary Import CTA at the bottom. The preview is an `aspect-[8/5] w-full` SVG on a 320x200 viewBox, so it scales with the card rather than sitting as a small letterboxed icon. Card body is `p-5`/`gap-2`; the title is `line-clamp-2 break-words` and the description `line-clamp-3 break-words`, so text wraps on word boundaries and ellipsizes rather than breaking mid-word. No React Flow, no Liveblocks — previews are static SVG only.
+  - `components/editor/workspace-context.tsx`: added `isStarterTemplatesOpen` + `openStarterTemplates`/`closeStarterTemplates` so the navbar button and the canvas modal share the open state across the workspace tree.
+  - `components/editor/editor-navbar.tsx`: added a "Templates" ghost button (`LayoutTemplate` icon) beside Share, visible only when a project is active; opens the modal via `openStarterTemplates`.
+  - `components/editor/canvas.tsx`: `CanvasFlow` reads the modal state from `useWorkspace` and renders `<StarterTemplatesModal>`. `handleImportTemplate` rewrites node/edge ids with a per-import `{templateId}-{stamp}-{original}` suffix, maps edge source/target through the id map, clears the canvas via the collaborative `onDelete({ nodes, edges })` (the working delete path — `remove` changes are a no-op in this bundle), adds the template through `onNodesChange`/`onEdgesChange` `add` changes, closes the modal, then `flow.fitView({ padding: 0.2, duration: 300 })` on the next animation frame so the freshly-added nodes are measured. All mutations stay inside the Liveblocks flow state.
+  - Modal width: `DialogContent`'s base class list carries `sm:max-w-sm`, and tailwind-merge does not dedupe a responsive-prefixed utility against an unprefixed one — so the earlier `max-w-7xl` was silently overridden and the dialog was pinned at 24rem on every desktop viewport. Fixed by passing both `max-w-[1400px]` and `sm:max-w-[1400px]` alongside `w-[calc(100vw-4rem)]`. Any future width override on a shadcn dialog must set the `sm:` variant too.
+  - Preview node labels are baked into the SVG and cannot rely on CSS wrapping, so `truncateToWidth()` clips each label to its glyph width with an ellipsis. Without it, long labels spilled past their shapes and were clipped at the SVG edge.
+  - Template edges use the `canvasEdge` type, which is registered in `edgeTypes` (alongside `default`), so imported labeled edges render. `tsc --noEmit` and `eslint` clean; `npm run build` passes.
+
+- Fix: connections rejected on half of each node, edges bending inward
+  - Root cause: nodes declared `type="target"` handles on top/left and `type="source"` handles on bottom/right. In React Flow's default strict connection mode a source only connects to a target, so the top and left points refused to start a connection and the bottom and right points refused to accept one. Edges then had to reach the one legal handle, which is what produced the long inward detours.
+  - `components/editor/canvas.tsx`: added `connectionMode={ConnectionMode.Loose}` — handle `type` no longer restricts connections, so all four sides both start and accept. Handle ids (`target-top`, `source-bottom`, …) are deliberately unchanged so edges saved before this still resolve.
+  - `components/editor/canvas-node.tsx`: the handle element is now a 16px invisible grab target with the visible 7px dot painted by a radial gradient (`HANDLE_DOT` / `HANDLE_HIT`). A 7px hit area — invisible until selection — was too small to reliably grab, which contributed to connections that would not start.
+  - Text annotations still have no handles (Feature 15 scope: they are plain text boxes, no outline and no connection points).
+
+- Fix: new workspace missing from the sidebar until reload
+  - `hooks/use-project-actions.ts`: the create branch called `router.refresh()` **before** `router.push()`. The router processes queued actions in order, so the refresh revalidated the route being left, and the push then rendered the new route reusing the already-cached `/editor` layout — the layout holds the sidebar project list, and shared layouts are not re-fetched on navigation to a nested route. Swapped to `push()` then `refresh()` so the refresh applies to the new route and re-fetches the layout.
+  - `app/api/projects/route.ts` and `app/api/projects/[projectId]/route.ts`: `revalidatePath("/editor")` → `revalidatePath("/editor", "layout")`. The page-scoped form only invalidated the `/editor` page, never the layout that actually renders the list (create/rename/delete all shared this gap).
+
+- Node Color Themes + Style Toolbar (spec: `context/feature-specs/15-text-annotation.md`)
+  - `types/canvas.ts`: added `NodeColorPair { key, label, bg, text }` and `NODE_COLORS` — the 8 pairs documented in `ui-context.md` (neutral, blue, purple, orange, red, pink, green, teal). No new `globals.css` tokens: these are canvas data values written into node data, not theme surfaces. `DEFAULT_NODE_COLOR_PAIR`/`DEFAULT_NODE_COLOR` (`#FFFFFF`)/`DEFAULT_NODE_BG` (`#000000`) replace the old `#a78bfa` default. `CanvasNodeData` gains `bg?: string` — `color` stays the accent (outline + label text), `bg` is the fill, so one swatch drives both without a second lookup at render time.
+  - `components/editor/color-swatches.tsx` (new): one round swatch per pair (fill = `pair.bg`, border = `pair.text`). Active pair is matched on `pair.text === data.color` and gets a tight 1.5px ring plus a slight scale; hover applies a controlled glow (`0 0 0 1px <text>, 0 0 6px <text>80`) — deliberately short-radius, not a soft bloom.
+  - `components/editor/font-select.tsx` (new): replaces the native `<select>`. The OS list rendered as a wide horizontal-spreading popup that ignored the canvas theme, so the picker is now a custom listbox — a pill trigger (`rounded-full`, 104px, truncating label + chevron) opening a vertical `rounded-2xl` panel of `rounded-full` options, each previewed in its own font, scrollable (`max-h-56`, `no-scrollbar`, `nowheel`). Closes on outside `pointerdown` or `Escape`.
+  - `components/editor/node-style-toolbar.tsx` (new): the `NodeToolbar` markup lifted out of `canvas-node.tsx` (which was heading past a comfortable size) and redesigned as a single `rounded-full` bar — `FONT [select] SIZE [n] | ●●●●●●●●`. The size input dropped from `w-14` to `w-8` with centered text and the label paddings tightened, which is what freed the horizontal room for the swatch row. Font-size clamping (8–96, fallback to the width-derived auto size) moved here with the input. `nodrag nopan` on the bar plus `stopPropagation` on `mousedown`/`doubleclick` keeps toolbar clicks from dragging the node or panning the canvas.
+  - `components/editor/shape-outline.tsx`: takes an optional `bg` and uses it as the shape fill, falling back to the previous `rgba(20,20,28,0.85)` for nodes created before this change.
+  - `components/editor/canvas-node.tsx`: label color is now `data.color` for every node (previously only text nodes), so a swatch updates shape labels too; `bg` is forwarded to `ShapeOutline`. Text annotations have no outline, so they take the pair's text color only.
+  - `components/editor/canvas.tsx`: `handleChangeColor` writes `{ color: pair.text, bg: pair.bg }` through the existing `updateNodeData` `replace` change — collaborative state only, no server calls. New dropped shapes and the drag ghost start on the default pair.
+  - Default pair is black on white text (`#000000` / `#FFFFFF`) — new nodes render black with white labels; the swatch row leads with it.
+  - Connection handles: `handleStyle(selected)` in `canvas-node.tsx` renders all four handles at 7px round with a dark hairline border and `opacity: 0` until the node is selected (150ms fade in). Pointer events stay on while hidden, so dragging a connection off an unselected node still works — connection behavior is unchanged, only the resting visuals. `NodeResizer` handles were rounded and matched to the same 7px size so selection reads as one consistent set of dots.
+  - Border weight pass (matching the reference canvas screenshots): `NodeResizer` gets `lineStyle={{ borderColor: "transparent" }}` so a selected node no longer draws a rectangular bounding box around the shape — the corner handles alone mark selection, and the box no longer boxes in diamonds/circles/hexagons. Shape outlines dropped from 2px/3px at 70–100% to 1px/1.5px at 55%/90%; the cylinder's cap line renders at 70% of that. CSS-border shapes (rectangle, circle, pill) cannot use SVG `strokeOpacity`, so `withOpacity()` in `shape-outline.tsx` folds the alpha into an `rgba()` border color (non-hex values pass through unchanged).
+  - `npm run build` and `tsc --noEmit` pass; `eslint` clean on all touched files (the one repo-wide error is the pre-existing `share-dialog.tsx` effect from Feature 09).
+
+- Connection handles on all four sides (every node) + edge labels
+  - Bug fixed: the top/left handles were un-grabbable on some shapes (diamond, hexagon). The shape outline rendered **after** the top/left handles in the DOM, so it sat on top and swallowed pointer events at the top/left edge; bottom/right handles rendered after the shape and worked. Fixed by pulling `ShapeOutline` ahead of the handle block and rendering **all four** handles last (top, left, bottom, right) for **every** node — shapes and text annotations — so they always paint above the shape. Each handle gets `isConnectableStart` + `isConnectableEnd` (`@xyflow/system` defaults them true; made explicit), so any handle can both accept and create a connection in the default Loose mode.
+  - Handles restyled per the current ask: small 7px white dots with a dark `#0a0a12` hairline border, `zIndex: 2`. Hidden by default (`opacity: 0`, `pointerEvents: none` when hidden so the invisible dot never blocks node dragging) and fade in on node hover **or** selection (150ms).
+  - Edge labels: new `components/editor/canvas-edge.tsx` custom edge renders the label with `EdgeLabelRenderer` anchored to the path midpoint (`getSmoothStepPath` returns `[path, labelX, labelY]`). Double-click the pill (or the edge — `onEdgeDoubleClick`) opens an inline input; Enter/blur commits `edge.data.label` through the collaborative `onEdgesChange` replace path (`handleChangeEdgeLabel` in `canvas.tsx`), Escape restores. Empty label shows a "+ label" affordance only while the edge is selected. `edgeTypes` registers the renderer under both `canvasEdge` and `default` (Liveblocks' `onConnect` creates edges with the built-in `default` type). `CanvasEdgeData` gained `label?: string` in `types/canvas.ts`.
+  - `npm run build` and `tsc --noEmit` pass; `eslint` clean on touched files.
+
+- Feature 15: Text Annotations + Font Picker
+  - `types/canvas.ts`: added `"text"` to `CanvasNodeShape`; `TEXT_NODE_COLOR = "#f0f0f4"`; `TEXT_DEFAULT_SIZE = { width: 240, height: 96 }` (also added to `SHAPE_DEFAULT_SIZES`); extended `CanvasNodeData` with `font` and optional `fontSize`.
+  - `components/editor/canvas-fonts.ts` (new): 11 curated fonts self-hosted via `next/font/google` (`Inter`, `Space Grotesk`, `Poppins`, `Nunito`, `Raleway`, `DM Sans`, `Playfair Display`, `Merriweather`, `JetBrains Mono`, `Caveat`, `Bebas Neue` + Geist), each exposing a `--font-canvas-*` CSS variable. `CANVAS_FONTS` maps key → label → cssVar; `DEFAULT_FONT_KEY = "geist"`; `fontCssVar()` resolves a stored key to its CSS var (fallback Geist); `CANVAS_FONT_VARIABLES` is applied to the canvas wrapper.
+  - `components/editor/canvas.tsx`:
+    - Text annotation creation. This React Flow fork exposes `onPaneClick` but no double-click handler, so `handlePaneClick` tracks the last click (coords + timestamp in a ref) and fires `createTextNode` when two clicks land within 300ms/8px. Creates a `shape: "text"` node under the existing `canvasNode` type, centered on the cursor point, `TEXT_DEFAULT_SIZE` size, and immediately enters inline edit via `setEditingId`. Dispatched through the collaborative `onNodesChange` `add` change path. `zoomOnDoubleClick={false}` prevents double-click-to-zoom.
+    - `updateNodeData` generalizes the old `replaceLabel` so font changes flow through the standard `replace` change (`{ ...current, data: { ...current.data, font } }`), keeping updates connected to the Liveblocks sync path. `handleChangeFontSize` writes `data.fontSize` through the same path.
+  - `components/editor/canvas-node.tsx`:
+    - Text nodes render as a plain resizable text box: `handle`s and `<ShapeOutline>` are gated behind `!isTextNode`, so annotations have no outline and no connection handles.
+    - `<NodeResizer keepAspectRatio={!isTextNode}>` — text resizes freely (no aspect lock); shapes stay proportional.
+    - Selected nodes show a `NodeToolbar` (`Position.Top`) with a font `<select>` listing `CANVAS_FONTS`; choosing a font writes `data.font` via `onChangeFont`. The value applies to both shape labels and annotation text (`fontFamily = fontCssVar(data.font)`), and labels/textarea use `whiteSpace: "pre-wrap"` so Enter renders a real line break.
+    - Label font scales with node width via `scaleFont` (existing resize behavior). The toolbar also carries a numeric Size input (8–96px, clamped) that writes `data.fontSize`; when set it overrides the width-derived auto scale (`data.fontSize ?? scaleFont(width)`), otherwise size keeps following node width.
+  - Node deletion (from the prior session, still active): hover/selection shows a trash button at the node's bottom-right corner; `handleDeleteNode` uses the Liveblocks `onDelete` (not the `remove` change, which is a no-op in this bundle) to remove the node + connected edges.
+  - `tsc --noEmit`, `eslint`, and `npm run build` all pass.
   - `components/editor/canvas-node.tsx`: replaced the placeholder renderer with the full `CanvasNodeRenderer`. Adds `<NodeResizer isVisible={selected} minWidth={60} minHeight={40} color="rgba(0,200,212,0.8)" />` — handles show only on selection, min-size enforced, subtle cyan matching the dark canvas. Shape visuals (reused `ShapeOutline`) unchanged. Label stays centered (`flex items-center justify-center`); double-clicking anywhere on the node opens a `textarea` (`autoFocus`, `nopan nowheel` classes so typing never drags the node or pans the canvas, `resize-none`, centered text, dashed `brand` border, empty-label placeholder in the same centered spot). `Escape` closes via `onEndEdit`; `onBlur` closes and persists. Edit state is a single `editingId` in `CanvasFlow`, so only one node edits at a time
   - `components/editor/canvas.tsx`: `NODE_TYPES` module const removed — `nodeTypes` is now built in `useMemo` per render so each node gets `isEditing`, `onStartEdit`, `onChangeLabel`, `onEndEdit`. Label writes go through `NodeReplaceChange` (`type: "replace"` with `{ ...current, data: { ...current.data, label } }`) via `onNodesChange` — verified `applyChanges` in `@xyflow/react` supports the `replace` branch, so labels stay connected to the Liveblocks sync flow. Resize dimensions flow through the existing `onNodesChange` `dimensions` change path (NodeResizer dispatches them natively)
   - `npm run build` passes (TypeScript clean); `eslint` clean on touched files
@@ -124,19 +181,90 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## In Progress
 
-- Shape interaction fixes + text annotations/fonts (completed, verified):
-  - **Connection handles**: all four sides were non-functional because the handles had no `id` — `getHandle()` in `@xyflow/system` resolves a null handle id to the **first** handle (`[...source, ...target]`), so every drag attached to the bottom source handle. Fixed by giving each handle a unique `id` (`target-top`, `target-left`, `source-bottom`, `source-right`) so `getHandle` returns the correct port. In the default Loose connection mode every handle now starts and ends connections (`isConnectableStart`/`isConnectableEnd` default true). Top/Left ports are `target`, Bottom/Right are `source`.
-  - **Text annotations**: double-clicking empty canvas creates a free-standing `shape: "text"` node (new `CanvasNodeShape` member) centered at the cursor, no outline, no handles, freely resizable (`keepAspectRatio={false}` for text), and it auto-enters inline edit mode via `setEditingId`. Detected with `onPaneClick` timing (this React Flow fork exposes `onPaneClick` but **no** `onPaneDoubleClick`), so `handlePaneClick` tracks the last click and fires `createTextNode` within 300ms/8px. `zoomOnDoubleClick={false}` so double-click doesn't also zoom.
-  - **Fonts**: 11 curated fonts self-hosted via `next/font/google` in new `components/editor/canvas-fonts.ts`, applied as CSS variables on the canvas wrapper. A `NodeToolbar` above any selected node shows a font `<select>`; the choice writes `data.font` through the same `replace` change path (`updateNodeData` generalizes the old `replaceLabel`). `fontCssVar()` maps the stored key to a CSS var; labels/textarea render with the chosen `fontFamily`. Data model extended with `CanvasNodeData.font`, `TEXT_NODE_COLOR`, `TEXT_DEFAULT_SIZE`.
-  - **Multiline labels**: label and textarea use `whiteSpace: "pre-wrap"` so pressing Enter in the textarea renders a real line break instead of collapsing to a space.
-  - **Font size**: `CanvasNodeData.fontSize` (optional) added; the toolbar gained a numeric Size input (8–96px, clamped). When set it overrides the width-derived auto scale (`data.fontSize ?? scaleFont(width)`); otherwise size keeps following node width.
-  - Earlier label/resize polish (carried into this entry): label font scales with node width via `scaleFont` and wraps (`wordBreak: "break-word"`, `overflow: hidden`, `lineHeight: 1.2`) instead of truncating to "…"; `<NodeResizer keepAspectRatio>` keeps shape nodes proportional so a circle stays round; a `no-scrollbar` `@utility` in `app/globals.css` hides the textarea scrollbar when pressing Enter.
-  - `types/canvas.ts`: `"text"` added to `CanvasNodeShape`; `ShapePanel` untouched (uses its own fixed 6-button list).
-  - `tsc --noEmit` + `eslint` + `npm run build` pass.
+- None.
 
 ## Next Up
 
 - Add the next planned feature unit here.
+
+- Canvas zoom + undo/redo controls & keyboard shortcuts (completed, verified)
+  - `components/editor/canvas-controls.tsx` (new): pill-shaped floating bar pinned `bottom-4 left-4` (bottom-left, above the shape panel, `z-10`). Left group = zoom out / fit view / zoom in (`Minus`, `Maximize2`, `Plus`); right group = undo / redo (`Undo2`, `Redo2`) after a thin vertical divider (`h-4 w-px bg-surface-border`). Zoom uses the React Flow instance (`useReactFlow`) with animated viewport helpers (`zoomOut/zoomIn({ duration: 200 })`, `fitView({ duration: 250 })`). Undo/redo drive the collaborative Liveblocks history via `useUndo()`/`useRedo()`; buttons disable and dim (`opacity-35`, `pointer-events-none`) via reactive `useCanUndo()`/`useCanRedo()`.
+  - `hooks/use-keyboard-shortcuts.ts` (new): `useKeyboardShortcuts({ flow, onUndo, onRedo, enabled })` — generic over node/edge types, listens on `window`, ignores targets in `INPUT`/`TEXTAREA` or `isContentEditable`. Shortcuts: `+`/`=` zoom in, `-` zoom out (animated, 200ms), `Cmd/Ctrl+Z` undo, `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` redo. Uses direct values in the effect deps (no ref mutation during render — satisfies the project's `react-hooks/refs` lint).
+  - `components/editor/canvas.tsx`: `CanvasFlow` now pulls the flow instance once (`const flow = useReactFlow<CanvasNode, CanvasEdge>()`), wires `useCanUndo/useCanRedo/useUndo/useRedo`, calls `useKeyboardShortcuts`, and renders `<CanvasControls />` above the shape panel. Shape panel, node/edge rendering, and the collaborative state setup unchanged.
+  - `tsc --noEmit`, `eslint`, and `npm run build` all pass.
+
+- Collaborator RBAC, additive template import, and the desktop-only gate (completed)
+  - `prisma/models/project.prisma` + migration `20260819160000_add_collaborator_can_edit`:
+    `ProjectCollaborator.canEdit Boolean @default(false)`. The migration backfills
+    `canEdit = true` for rows that already existed, because before this change every
+    authorised member received `room:write`; demoting them silently would have pulled
+    access out from under people mid-session. New invites default to view-only.
+  - `lib/project-access.ts`: `AccessibleProject` gains `canEdit` (owner OR the matched
+    active collaborator's flag). `getProjectForAccess` now returns the membership row
+    rather than a boolean so the flag can be read.
+  - `app/api/liveblocks-auth/route.ts`: the room grant is the real permission boundary —
+    editors get `["room:write"]`, viewers `["room:read", "room:presence:write"]`. Viewers
+    keep cursors/presence but the Liveblocks server rejects storage writes, so bypassing
+    the client UI achieves nothing.
+  - `collaborators/route.ts`: GET returns per-row `canEdit` plus the caller's own; POST
+    accepts `canEdit` at invite time and honours it **only when the caller is the owner**
+    (a `canShare` collaborator can invite, but never grant edit).
+  - `collaborators/[collaboratorId]/route.ts`: PATCH accepts `canShare` and/or `canEdit`
+    (both now optional, at least one required) and calls `syncRoomAccess()` so a revoked
+    collaborator loses write access on their live connection instead of at token expiry.
+    `lib/collaborators.ts` gained `getUserIdByEmail()` for that Clerk email -> id lookup.
+  - `components/editor/canvas.tsx`: `Canvas`/`CanvasFlow` take `canEdit` as a prop
+    (from the server-resolved project, not `activeProject`, which is null on first render
+    and would flash the shape panel). Every mutation path early-returns for viewers, and
+    `onNodesChange`/`onEdgesChange` are wrapped to let only local `select`/`dimensions`
+    changes through so the canvas stays navigable. `nodesDraggable`, `nodesConnectable`,
+    `edgesReconnectable`, `onConnect`, `onDelete` and `deleteKeyCode` are all gated;
+    the shape panel is replaced by a `ViewOnlyBadge`.
+  - Additive import: `handleImportTemplate` no longer calls `onDelete({ nodes, edges })`.
+    `importOffsetFor()` places the template `IMPORT_GAP` (120px) to the right of the
+    existing content's bounding box with tops aligned, returning a zero offset on an
+    empty canvas. Verified against synthetic cases: empty canvas, negative coordinates,
+    and three successive imports all keep a clean 120px gap with no overlap.
+  - `components/editor/small-screen-gate.tsx` (new): non-dismissible blocker below
+    `WORKSPACE_MIN_WIDTH` (1024px), driven by `matchMedia` and starting `null` so the
+    first client render matches SSR. `workspace-shell.tsx` renders it and marks the
+    workspace `inert` while blocked so keyboard focus cannot reach the canvas behind it.
+    Verified: shown at 375/768/1023, absent at 1024/1440, pointer events blocked, and it
+    clears on live resize without a reload.
+  - `share-dialog.tsx`: owner-only "Invite as [Can view | Can edit]" segmented control
+    (`RoleOption`), a per-collaborator pencil toggle for edit access, badges now read
+    `CAN EDIT` / `VIEW ONLY` / `PENDING`, and `handleToggleCanShare` was generalised into
+    `patchPermission(row, patch)`.
+  - **Gotcha — `text-base` is a COLOUR utility in this project.** `globals.css` defines
+    `--color-base: var(--bg-base)` (`#080809`), so Tailwind emits `.text-base { color: #080809 }`.
+    Adding `text-base` to the dialog title rendered it near-black on the dark popover.
+    Use the numeric type scale (`text-sm`, `text-lg`, `text-[15px]`) and never `text-base`.
+    Note `components/ui/dialog.tsx` and `card.tsx` carry `text-base` in their base classes,
+    so **any `DialogTitle`/`CardTitle` without a font-size override renders near-invisible** —
+    the three titles in `project-dialogs.tsx` are currently affected (untouched, out of scope).
+  - Modal responsiveness: `DialogContent` is now `flex flex-col max-h-[90dvh]` with a fixed
+    header and the grid as the only scroll region, so the Import button is always reachable.
+    The grid needs `content-start auto-rows-min` — with a definite height from `flex-1`, the
+    default `align-content: stretch` squashed all ten rows to fit instead of scrolling, which
+    is what made the buttons unreachable. Verified at 320/375/390/414/768/844x390/1024/1440:
+    dialog fits the viewport, grid scrolls, and the last Import button is both in-viewport
+    and the real hit target at its centre, with no horizontal page scroll.
+  - **Regression fixed — imported template dragged pre-existing nodes with it.**
+    The first cut added imported nodes with `selected: true` without clearing the
+    existing selection. React Flow drags every selected node as one unit, so if
+    anything was already selected when the modal opened, the import joined that
+    selection and dragging the template moved untouched pre-existing nodes too.
+    Reproduced in a browser harness: 9 of 9 nodes selected after import, and
+    dragging an imported node moved the pre-existing node by (83, 352). Now the
+    change-set deselects everything first and imported nodes land unselected —
+    0 selected after import, pre-existing node moves (0, 0). Node positions were
+    asserted in flow coordinates, so React Flow's edge auto-pan cannot mask the result.
+  - `components/editor/template-import.ts` (new): `importOffsetFor()` and
+    `buildTemplateImportChanges()` extracted out of `canvas.tsx` (which was over
+    600 lines) so the import change-set is unit-addressable without a live
+    Liveblocks room. `canvas.tsx` now just calls the builder.
+  - `tsc --noEmit` and `npm run build` pass. `eslint` reports only the pre-existing
+    `react-hooks/set-state-in-effect` error in `share-dialog.tsx`.
 
 ## Open Questions
 

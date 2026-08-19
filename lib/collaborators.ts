@@ -85,3 +85,21 @@ export async function enrichCollaborators(
     };
   });
 }
+
+/**
+ * Resolve the Clerk user id behind an email, if that person has an account.
+ * Used to push permission changes into a Liveblocks room immediately rather
+ * than waiting for the collaborator's access token to expire.
+ */
+export async function getUserIdByEmail(email: string): Promise<string | null> {
+  try {
+    const client = await clerkClient();
+    const response = await client.users.getUserList({
+      emailAddress: [email],
+      limit: 1,
+    });
+    return response.data[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}

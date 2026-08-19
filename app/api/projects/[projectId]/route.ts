@@ -51,7 +51,7 @@ export async function PATCH(request: Request, ctx: RouteContext) {
     data: { name: rawName },
   });
 
-  revalidatePath("/editor");
+  revalidatePath("/editor", "layout");
   return NextResponse.json({ project: updated });
 }
 
@@ -74,6 +74,6 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
   await prisma.project.delete({ where: { id: projectId } });
 
-  revalidatePath("/editor");
+  revalidatePath("/editor", "layout");
   return NextResponse.json({ success: true });
 }

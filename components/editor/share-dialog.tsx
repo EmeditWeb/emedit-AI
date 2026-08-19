@@ -6,6 +6,7 @@ import {
   Link2,
   Loader2,
   Mail,
+  Pencil,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -32,6 +33,7 @@ interface CollaboratorRow {
   email: string;
   status: "PENDING" | "ACTIVE";
   canShare: boolean;
+  canEdit: boolean;
   displayName: string | null;
   avatarUrl: string | null;
 }
@@ -64,6 +66,8 @@ export function ShareDialog({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [emailInput, setEmailInput] = useState("");
+  // New invites default to view-only; the owner opts into edit explicitly.
+  const [inviteCanEdit, setInviteCanEdit] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
@@ -87,6 +91,7 @@ export function ShareDialog({
         owner: OwnerProfile | null;
         collaborators: CollaboratorRow[];
         canShare: boolean;
+        canEdit: boolean;
       };
       setOwner(data.owner);
       setCollaborators(data.collaborators);
@@ -109,6 +114,7 @@ export function ShareDialog({
     (next: boolean) => {
       if (!next) {
         setEmailInput("");
+        setInviteCanEdit(false);
         setInviteError(null);
         setCopied(false);
       }
@@ -131,7 +137,7 @@ export function ShareDialog({
         const res = await fetch(`/api/projects/${projectId}/collaborators`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, canEdit: inviteCanEdit }),
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as ApiError;
@@ -147,6 +153,7 @@ export function ShareDialog({
           return [...prev, data.collaborator];
         });
         setEmailInput("");
+        setInviteCanEdit(false);
       } catch (error) {
         setInviteError(
           error instanceof Error ? error.message : "Failed to invite",
@@ -155,7 +162,7 @@ export function ShareDialog({
         setIsInviting(false);
       }
     },
-    [emailInput, projectId],
+    [emailInput, inviteCanEdit, projectId],
   );
 
   
@@ -184,8 +191,8 @@ export function ShareDialog({
     [projectId],
   );
 
-  const handleToggleCanShare = useCallback(
-    async (row: CollaboratorRow) => {
+  const patchPermission = useCallback(
+    async (row: CollaboratorRow, patch: { canShare?: boolean; canEdit?: boolean }) => {
       setBusyCollaboratorId(row.id);
       try {
         const res = await fetch(
@@ -193,7 +200,7 @@ export function ShareDialog({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canShare: !row.canShare }),
+            body: JSON.stringify(patch),
           },
         );
         if (!res.ok) {
@@ -201,12 +208,16 @@ export function ShareDialog({
           throw new Error(data.error ?? "Failed to update permission");
         }
         const data = (await res.json()) as {
-          collaborator: { id: string; canShare: boolean };
+          collaborator: { id: string; canShare: boolean; canEdit: boolean };
         };
         setCollaborators((prev) =>
           prev.map((c) =>
             c.id === data.collaborator.id
-              ? { ...c, canShare: data.collaborator.canShare }
+              ? {
+                  ...c,
+                  canShare: data.collaborator.canShare,
+                  canEdit: data.collaborator.canEdit,
+                }
               : c,
           ),
         );
@@ -314,6 +325,25 @@ export function ShareDialog({
                 )}
               </Button>
             </div>
+            {ownedByCurrentUser && (
+              <div className="flex items-center gap-1.5 px-0.5">
+                <span className="text-[11.5px] text-copy-muted">
+                  Invite as
+                </span>
+                <div className="flex overflow-hidden rounded-lg border border-surface-border">
+                  <RoleOption
+                    label="Can view"
+                    selected={!inviteCanEdit}
+                    onSelect={() => setInviteCanEdit(false)}
+                  />
+                  <RoleOption
+                    label="Can edit"
+                    selected={inviteCanEdit}
+                    onSelect={() => setInviteCanEdit(true)}
+                  />
+                </div>
+              </div>
+            )}
             {inviteError && (
               <p className="px-2 text-xs text-destructive">{inviteError}</p>
             )}
@@ -363,12 +393,15 @@ export function ShareDialog({
                     badge={
                       collaborator.status === "PENDING"
                         ? "PENDING"
-                        : collaborator.canShare
-                          ? "CAN SHARE"
-                          : undefined
+                        : collaborator.canEdit
+                          ? "CAN EDIT"
+                          : "VIEW ONLY"
                     }
                     badgeTone={
-                      collaborator.status === "PENDING" ? "muted" : "brand"
+                      collaborator.status === "PENDING" ||
+                      !collaborator.canEdit
+                        ? "muted"
+                        : "brand"
                     }
                   >
                     {ownedByCurrentUser && (
@@ -378,7 +411,41 @@ export function ShareDialog({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => handleToggleCanShare(collaborator)}
+                            onClick={() =>
+                              patchPermission(collaborator, {
+                                canEdit: !collaborator.canEdit,
+                              })
+                            }
+                            disabled={isBusy}
+                            aria-label={
+                              collaborator.canEdit
+                                ? `Revoke edit access from ${collaborator.email}`
+                                : `Grant edit access to ${collaborator.email}`
+                            }
+                            title={
+                              collaborator.canEdit
+                                ? "Revoke edit access"
+                                : "Grant edit access"
+                            }
+                            className={cn(
+                              collaborator.canEdit
+                                ? "text-brand"
+                                : "text-copy-muted hover:text-copy-primary",
+                            )}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {collaborator.status === "ACTIVE" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() =>
+                              patchPermission(collaborator, {
+                                canShare: !collaborator.canShare,
+                              })
+                            }
                             disabled={isBusy}
                             aria-label={
                               collaborator.canShare
@@ -519,5 +586,29 @@ function Avatar({
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-surface-border bg-surface text-xs font-semibold text-copy-primary">
       {initial}
     </div>
+  );
+}
+
+interface RoleOptionProps {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+function RoleOption({ label, selected, onSelect }: RoleOptionProps) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        "px-2.5 py-1 text-[11.5px] transition-colors",
+        selected
+          ? "bg-brand text-black"
+          : "bg-transparent text-copy-muted hover:text-copy-primary",
+      )}
+    >
+      {label}
+    </button>
   );
 }
