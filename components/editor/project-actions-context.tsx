@@ -3,10 +3,12 @@
 import { createContext, useContext, type ReactNode } from "react";
 
 import type { ProjectSummary } from "@/lib/projects";
+import type { PendingInvitation } from "@/lib/projects-data";
 
 interface ProjectActions {
   owned: ReadonlyArray<ProjectSummary>;
   shared: ReadonlyArray<ProjectSummary>;
+  invitations: ReadonlyArray<PendingInvitation>;
   openCreate: () => void;
   openRename: (project: ProjectSummary) => void;
   openDelete: (project: ProjectSummary) => void;
