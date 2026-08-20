@@ -82,6 +82,7 @@ export function CanvasEdgeComponent({
             <input
               autoFocus
               spellCheck={false}
+              aria-label="Edit edge label"
               placeholder="Edge label…"
               value={draft ?? label}
               onChange={(event) => setDraft(event.target.value)}

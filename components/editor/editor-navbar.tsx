@@ -11,6 +11,7 @@ import {
 import { useState } from "react";
 
 import { ShareDialog } from "@/components/editor/share-dialog";
+import { NotificationsButton } from "@/components/editor/notifications-button";
 import { useWorkspace } from "@/components/editor/workspace-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ export function EditorNavbar() {
   const ToggleIcon = isProjectSidebarOpen ? PanelLeftClose : PanelLeftOpen;
 
   return (
-    <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-surface-border bg-base/80 px-3 backdrop-blur-xl">
+    <header className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b border-surface-border bg-base/80 px-3 backdrop-blur-xl">
       <div className="flex flex-1 items-center gap-3 min-w-0">
         <Button
           variant="ghost"
@@ -54,6 +55,7 @@ export function EditorNavbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <NotificationsButton />
         {activeProject?.canEdit && (
           <>
             <Button

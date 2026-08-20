@@ -63,7 +63,7 @@ export function StarterTemplatesModal({
           // content-start + auto-rows-min are required: the grid has a definite
           // height from flex-1, and the default align-content:stretch would
           // squash every row to fit instead of letting the container scroll.
-          className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 content-start gap-5 overflow-y-auto px-5 pt-2 pb-6 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-7 sm:px-8 sm:pb-8"
+          className="no-scrollbar grid min-h-0 flex-1 auto-rows-min grid-cols-1 content-start gap-5 overflow-y-auto px-5 pt-2 pb-6 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-7 sm:px-8 sm:pb-8"
         >
           {CANVAS_TEMPLATES.map((template) => (
             <TemplateCard

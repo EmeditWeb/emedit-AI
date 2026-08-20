@@ -2,7 +2,13 @@
 
 import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import { Trash2 } from "lucide-react";
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 
 import type { CanvasNode, NodeColorPair } from "@/types/canvas";
 import { DEFAULT_FONT_KEY, fontCssVar } from "./canvas-fonts";
@@ -51,12 +57,17 @@ interface CanvasNodeRendererProps extends NodeProps<CanvasNode> {
   onChangeColor?: (id: string, pair: NodeColorPair) => void;
   onEndEdit?: (id: string, label: string) => void;
   onDeleteNode?: (id: string) => void;
+  onAutoSize?: (id: string, size: { width: number; height: number }) => void;
 }
+
+/** Fixed base font for text annotations until the user sets one explicitly. */
+const TEXT_BASE_FONT_SIZE = 16;
 
 export function CanvasNodeRenderer({
   id,
   data,
   width,
+  height,
   selected,
   isEditing = false,
   onStartEdit,
@@ -66,12 +77,42 @@ export function CanvasNodeRenderer({
   onChangeColor,
   onEndEdit,
   onDeleteNode,
+  onAutoSize,
 }: CanvasNodeRendererProps) {
   const isTextNode = data.shape === "text";
-  const autoFontSize = scaleFont(width ?? 0);
+  const measureRef = useRef<HTMLSpanElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Text nodes size to their content instead of staying rigid, so raising the
+  // font size spreads the box out rather than clipping the text inward.
+  const autoFontSize = isTextNode ? TEXT_BASE_FONT_SIZE : scaleFont(width ?? 0);
   const fontSize = data.fontSize ?? autoFontSize;
   const fontFamily = fontCssVar(data.font ?? DEFAULT_FONT_KEY);
   const textColor = data.color;
+
+  useLayoutEffect(() => {
+    if (!isTextNode || !onAutoSize) return;
+    const el = measureRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const naturalW = Math.ceil(rect.width) + 24;
+    const naturalH = Math.ceil(rect.height) + 4;
+    const nextW = Math.max(width ?? 0, naturalW);
+    const nextH = Math.max(height ?? 0, naturalH);
+    if (nextW !== width || nextH !== height) {
+      onAutoSize(id, { width: nextW, height: nextH });
+    }
+  }, [isTextNode, onAutoSize, id, data.label, data.font, fontSize, width, height]);
+
+  // Keep the inline edit box hugging its own text so the flex centering in the
+  // wrapper holds the caret on the same line as the static label — without this
+  // the textarea is several lines tall, its text sits top-aligned, and the text
+  // visibly jumps up during editing.
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!isEditing || !el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [isEditing, data.label, fontSize]);
 
   const [hovered, setHovered] = useState(false);
   const hoverTimerRef = useRef<number | null>(null);
@@ -149,36 +190,53 @@ export function CanvasNodeRenderer({
           color: textColor,
           fontSize,
           lineHeight: 1.2,
-          overflow: "hidden",
-          wordBreak: "break-word",
-          whiteSpace: "pre-wrap",
+          overflow: isTextNode ? "visible" : "hidden",
+          whiteSpace: "pre",
           fontFamily,
         }}
       >
         <span
-          className="pointer-events-auto nodrag nopan select-text cursor-text"
-          style={{ fontFamily }}
+          className="pointer-events-none select-text cursor-text"
+          style={{ fontFamily, whiteSpace: "pre" }}
         >
           {data.label}
         </span>
       </div>
+      {isTextNode ? (
+        <span
+          ref={measureRef}
+          aria-hidden
+          className="pointer-events-none invisible absolute top-0 left-0 w-max"
+          style={{
+            fontSize,
+            lineHeight: 1.2,
+            whiteSpace: "pre",
+            fontFamily,
+          }}
+        >
+          {data.label}
+        </span>
+      ) : null}
       {isEditing ? (
         <div className="absolute inset-0 z-[5] flex items-center justify-center px-3">
           <textarea
+            ref={textareaRef}
             autoFocus
+            rows={1}
             spellCheck={false}
             value={data.label}
+            aria-label="Edit node label"
             placeholder="Enter label…"
             onChange={(event) => onChangeLabel?.(id, event.target.value)}
             onBlur={() => onEndEdit?.(id, data.label)}
             onKeyDown={handleKeyDown}
-            className="no-scrollbar nopan nowheel nodrag block w-full resize-none rounded-md border border-dashed border-brand/50 bg-surface/95 text-center text-copy-primary outline-none focus:border-brand"
+            className="no-scrollbar nopan nowheel nodrag block w-full resize-none overflow-hidden rounded-md border border-dashed border-brand/50 bg-surface/95 py-0 text-center text-copy-primary outline-none focus:border-brand"
             style={{
               color: textColor,
               fontSize,
               lineHeight: 1.2,
-              wordBreak: "break-word",
-              whiteSpace: "pre-wrap",
+              whiteSpace: "pre",
+              overflowWrap: "normal",
               fontFamily,
             }}
           />

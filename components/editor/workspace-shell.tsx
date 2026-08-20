@@ -8,6 +8,7 @@ import {
   SmallScreenGate,
   useIsBelowMinWidth,
 } from "@/components/editor/small-screen-gate";
+import { WorkspaceAccessGuard } from "@/components/editor/workspace-access-guard";
 import {
   useWorkspace,
   type ActiveProject,
@@ -47,7 +48,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps) {
         )}
       >
         <section className="relative h-full w-full overflow-hidden rounded-2xl border border-surface-border bg-surface/40 shadow-2xl shadow-black/30">
-          <Canvas roomId={project.id} canEdit={project.canEdit} />
+          <WorkspaceAccessGuard projectId={project.id}>
+            <Canvas roomId={project.id} canEdit={project.canEdit} />
+          </WorkspaceAccessGuard>
         </section>
       </div>
 

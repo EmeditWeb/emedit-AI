@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { enrichCollaborators, getUserProfileById } from "@/lib/collaborators";
 import { prisma } from "@/lib/prisma";
 import { getCurrentIdentity } from "@/lib/project-access";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface RouteContext {
   params: Promise<{ projectId: string }>;
@@ -75,6 +76,9 @@ export async function GET(_request: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const denied = gateRequest(`collaborators:${identity.userId}`, "read");
+  if (denied) return denied;
+
   const { projectId } = await ctx.params;
   const { project, permissions } = await resolvePermissions(
     projectId,
@@ -140,6 +144,9 @@ export async function POST(request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
 
@@ -249,6 +256,9 @@ export async function DELETE(request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
 

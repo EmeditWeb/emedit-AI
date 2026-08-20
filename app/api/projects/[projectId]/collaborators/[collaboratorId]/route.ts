@@ -5,6 +5,7 @@ import { getUserIdByEmail } from "@/lib/collaborators";
 import { getLiveblocksClient } from "@/lib/liveblocks";
 import { prisma } from "@/lib/prisma";
 import { getCurrentIdentity } from "@/lib/project-access";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface RouteContext {
   params: Promise<{ projectId: string; collaboratorId: string }>;
@@ -20,6 +21,9 @@ export async function PATCH(request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId, collaboratorId } = await ctx.params;
 

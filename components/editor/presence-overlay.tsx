@@ -5,6 +5,8 @@ import { useOthers, useUser as useLiveblocksUser } from "@liveblocks/react";
 import type { CursorsCursorProps } from "@liveblocks/react-flow";
 import { useMemo } from "react";
 
+import { cursorColorForConnection } from "@/lib/cursor-colors";
+
 const MAX_VISIBLE_AVATARS = 5;
 
 interface Collaborator {
@@ -25,7 +27,7 @@ export function PresenceOverlay() {
         id: other.id,
         name: other.info?.name ?? "Anonymous",
         avatar: other.info?.avatar,
-        color: other.info?.color ?? "#94a3b8",
+        color: cursorColorForConnection(other.connectionId),
       }))
       .filter((collaborator) => collaborator.id !== currentUserId);
   }, [others, user?.id]);
@@ -98,13 +100,16 @@ function OverflowChip({ count }: { count: number }) {
   );
 }
 
-export function CanvasCursor({ userId }: CursorsCursorProps) {
+export function CanvasCursor({
+  userId,
+  connectionId,
+}: CursorsCursorProps) {
   const { user, isLoading } = useLiveblocksUser(userId);
 
   if (isLoading) return null;
 
   const name = user?.name ?? "Anonymous";
-  const color = user?.color ?? "#94a3b8";
+  const color = cursorColorForConnection(connectionId);
 
   return (
     <div className="relative" style={{ color }}>

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getUserProfileById } from "@/lib/collaborators";
 import { getCursorColorForUser, getLiveblocksClient } from "@/lib/liveblocks";
 import { getProjectForAccess } from "@/lib/project-access";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface AuthRequestBody {
   room?: string;
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`liveblocks-auth:${userId}`, "liveblocks");
+  if (denied) return denied;
 
   let body: AuthRequestBody = {};
   try {
@@ -60,7 +64,14 @@ export async function POST(request: Request) {
 
   const profile = await getUserProfileById(userId);
   const color = getCursorColorForUser(userId);
-  const name = profile?.displayName ?? profile?.email ?? "Anonymous";
+  // Prefer the account username so team members always see who is active on the
+  // canvas; fall back to a display name or email, and only to "Anonymous" when
+  // the account carries no identity at all.
+  const name =
+    profile?.username ??
+    profile?.displayName ??
+    profile?.email ??
+    "Anonymous";
   const userInfo: { name: string; avatar?: string; color: string } = {
     name,
     color,

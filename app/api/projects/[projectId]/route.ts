@@ -1,7 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { getUserIdByEmail } from "@/lib/collaborators";
 import { prisma } from "@/lib/prisma";
+import { getLiveblocksClient } from "@/lib/liveblocks";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface RouteContext {
   params: Promise<{ projectId: string }>;
@@ -16,6 +19,9 @@ export async function PATCH(request: Request, ctx: RouteContext) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`projects:${userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
 
@@ -61,18 +67,62 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const denied = gateRequest(`projects:${userId}`, "mutate");
+  if (denied) return denied;
+
   const { projectId } = await ctx.params;
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: {
+      ownerId: true,
+      name: true,
+      collaborators: {
+        where: { status: "ACTIVE" },
+        select: { email: true },
+      },
+    },
   });
 
   if (!project || project.ownerId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Leave a "workspace deleted" notification for every active collaborator so
+  // they learn about it the next time they sign in — not just those with the
+  // workspace open right now. Best effort: a notification failure must never
+  // block the deletion itself.
+  try {
+    const recipients = new Set<string>();
+    for (const collaborator of project.collaborators) {
+      if (!collaborator.email) continue;
+      const recipientId = await getUserIdByEmail(collaborator.email);
+      if (recipientId && recipientId !== project.ownerId) {
+        recipients.add(recipientId);
+      }
+    }
+    await prisma.projectNotification.createMany({
+      data: Array.from(recipients).map((recipientId) => ({
+        userId: recipientId,
+        projectId,
+        projectName: project.name,
+        type: "PROJECT_DELETED",
+      })),
+    });
+  } catch {
+    // Notification creation is best-effort.
+  }
+
   await prisma.project.delete({ where: { id: projectId } });
+
+  // Tear down the collaboration room so connected collaborators lose their live
+  // connection too (their open canvas then flips to the deleted notice). Best
+  // effort — a Liveblocks outage must not block the project deletion itself.
+  try {
+    await getLiveblocksClient().deleteRoom(projectId);
+  } catch {
+    // Room cleanup is best-effort; the DB row is already gone.
+  }
 
   revalidatePath("/editor", "layout");
   return NextResponse.json({ success: true });

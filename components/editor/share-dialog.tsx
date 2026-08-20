@@ -76,39 +76,79 @@ export function ShareDialog({
   );
   const [copied, setCopied] = useState(false);
 
-  const loadCollaborators = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/collaborators`, {
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as ApiError;
-        throw new Error(data.error ?? "Failed to load collaborators");
-      }
-      const data = (await res.json()) as {
-        owner: OwnerProfile | null;
-        collaborators: CollaboratorRow[];
-        canShare: boolean;
-        canEdit: boolean;
-      };
-      setOwner(data.owner);
-      setCollaborators(data.collaborators);
-      setCallerCanShare(data.canShare);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : "Failed to load collaborators",
-      );
-    } finally {
-      setIsLoading(false);
+  // Adopt the dialog's open state into the loading flag during render (rather
+  // than a synchronous setState inside an effect) so a fresh fetch shows the
+  // spinner. The effect itself only calls an async loader.
+  const [lastOpen, setLastOpen] = useState(open);
+  if (lastOpen !== open) {
+    setLastOpen(open);
+    if (open) {
+      setIsLoading(true);
+      setLoadError(null);
     }
-  }, [projectId]);
+  }
+
+  const requestCollaborators = useCallback(
+    async () =>
+      fetch(`/api/projects/${projectId}/collaborators`, { cache: "no-store" }),
+    [projectId],
+  );
 
   useEffect(() => {
     if (!open) return;
-    loadCollaborators();
-  }, [open, loadCollaborators]);
+    const run = async () => {
+      try {
+        const res = await requestCollaborators();
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as ApiError;
+          throw new Error(data.error ?? "Failed to load collaborators");
+        }
+        const data = (await res.json()) as {
+          owner: OwnerProfile | null;
+          collaborators: CollaboratorRow[];
+          canShare: boolean;
+          canEdit: boolean;
+        };
+        setOwner(data.owner);
+        setCollaborators(data.collaborators);
+        setCallerCanShare(data.canShare);
+      } catch (error) {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load collaborators",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void run();
+  }, [open, requestCollaborators]);
+
+  // Keep membership live so a PENDING invite that the other party accepts flips
+  // to ACTIVE (and their role badge updates) without a reload.
+  useEffect(() => {
+    if (!open) return;
+    const run = async () => {
+      try {
+        const res = await requestCollaborators();
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          owner: OwnerProfile | null;
+          collaborators: CollaboratorRow[];
+          canShare: boolean;
+          canEdit: boolean;
+        };
+        setOwner(data.owner);
+        setCollaborators(data.collaborators);
+        setCallerCanShare(data.canShare);
+      } catch {
+        // Silent refresh — the next poll retries.
+      }
+    };
+    const id = window.setInterval(() => void run(), 5000);
+    return () => window.clearInterval(id);
+  }, [open, requestCollaborators]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -255,8 +295,9 @@ export function ShareDialog({
             Share project
           </DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed text-copy-muted">
-            Invite collaborators, copy the workspace link, and manage access to
-            &ldquo;{projectName}&rdquo;.
+            Invite collaborators, copy the workspace link, and manage access
+            to{" "}
+            <b>{projectName}</b>.
           </DialogDescription>
         </DialogHeader>
 

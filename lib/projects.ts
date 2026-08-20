@@ -3,6 +3,12 @@ export interface ProjectSummary {
   name: string;
   slug: string;
   ownedByCurrentUser: boolean;
+  /**
+   * True when the project is collaborative: either it has active collaborators
+   * (you shared it with others) or it was shared with you. Used to surface owned
+   * projects under the Shared tab too.
+   */
+  isShared?: boolean;
 }
 
 export function slugify(name: string): string {
