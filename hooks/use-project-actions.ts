@@ -115,8 +115,12 @@ export function useProjectActions(): UseProjectActionsResult {
         }
         if (!createdId) return;
         close();
-        router.refresh();
+        // Refresh AFTER the navigation: the router processes queued actions in
+        // order, so refreshing second re-fetches the `/editor` layout for the
+        // new route. Refreshing first only revalidates the route being left,
+        // and the sidebar keeps rendering the cached (pre-create) project list.
         router.push(`/editor/${createdId}`);
+        router.refresh();
         return;
       }
 

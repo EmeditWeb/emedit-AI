@@ -1,9 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
+import type { RoomAccesses } from "@liveblocks/node";
 import { NextResponse } from "next/server";
 
 import { getUserProfileById } from "@/lib/collaborators";
 import { getCursorColorForUser, getLiveblocksClient } from "@/lib/liveblocks";
 import { getProjectForAccess } from "@/lib/project-access";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface AuthRequestBody {
   room?: string;
@@ -14,6 +16,9 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`liveblocks-auth:${userId}`, "liveblocks");
+  if (denied) return denied;
 
   let body: AuthRequestBody = {};
   try {
@@ -38,25 +43,35 @@ export async function POST(request: Request) {
   const { project } = access;
   const liveblocks = getLiveblocksClient();
 
+  // The room grant is the authoritative permission boundary: a view-only
+  // collaborator gets presence (cursors) but cannot mutate storage, so the
+  // server rejects writes even if the client UI is bypassed.
+  const accesses: RoomAccesses[string] = project.canEdit
+    ? ["room:write"]
+    : ["room:read", "room:presence:write"];
+
   const existing = await liveblocks.getRoom(project.id).catch(() => null);
   if (!existing) {
     await liveblocks.createRoom(project.id, {
       defaultAccesses: [],
-      usersAccesses: {
-        [userId]: ["room:write"],
-      },
+      usersAccesses: { [userId]: accesses },
     });
   } else {
     await liveblocks.updateRoom(project.id, {
-      usersAccesses: {
-        [userId]: ["room:write"],
-      },
+      usersAccesses: { [userId]: accesses },
     });
   }
 
   const profile = await getUserProfileById(userId);
   const color = getCursorColorForUser(userId);
-  const name = profile?.displayName ?? profile?.email ?? "Anonymous";
+  // Prefer the account username so team members always see who is active on the
+  // canvas; fall back to a display name or email, and only to "Anonymous" when
+  // the account carries no identity at all.
+  const name =
+    profile?.username ??
+    profile?.displayName ??
+    profile?.email ??
+    "Anonymous";
   const userInfo: { name: string; avatar?: string; color: string } = {
     name,
     color,

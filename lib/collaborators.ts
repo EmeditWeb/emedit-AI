@@ -3,6 +3,8 @@ import { clerkClient } from "@clerk/nextjs/server";
 export interface CollaboratorProfile {
   email: string;
   displayName: string | null;
+  /** Clerk account username, if one is set (e.g. OAuth-only accounts). */
+  username?: string | null;
   avatarUrl: string | null;
 }
 
@@ -26,15 +28,20 @@ export async function getUserProfileById(
     const user = await client.users.getUser(userId);
     const primaryEmail =
       user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
-        ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-    if (!primaryEmail) return null;
+        ?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
+    const displayName = buildDisplayName(
+      user.firstName,
+      user.lastName,
+      user.fullName ?? null,
+    );
+    // Only bail when the account has no identity surface at all (no email,
+    // username, or name parts) so a real signed-in user is never reported as
+    // "Anonymous" because a single resolution path came up empty.
+    if (!displayName && !primaryEmail && !user.username) return null;
     return {
       email: primaryEmail,
-      displayName: buildDisplayName(
-        user.firstName,
-        user.lastName,
-        user.fullName ?? null,
-      ),
+      displayName,
+      username: user.username ?? null,
       avatarUrl: user.imageUrl ?? null,
     };
   } catch {
@@ -84,4 +91,22 @@ export async function enrichCollaborators(
       avatarUrl: hit?.avatarUrl ?? null,
     };
   });
+}
+
+/**
+ * Resolve the Clerk user id behind an email, if that person has an account.
+ * Used to push permission changes into a Liveblocks room immediately rather
+ * than waiting for the collaborator's access token to expire.
+ */
+export async function getUserIdByEmail(email: string): Promise<string | null> {
+  try {
+    const client = await clerkClient();
+    const response = await client.users.getUserList({
+      emailAddress: [email],
+      limit: 1,
+    });
+    return response.data[0]?.id ?? null;
+  } catch {
+    return null;
+  }
 }

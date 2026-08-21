@@ -2,15 +2,20 @@
 
 import { UserButton } from "@clerk/nextjs";
 import {
+  LayoutTemplate,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { useState } from "react";
 
 import { ShareDialog } from "@/components/editor/share-dialog";
+import { NotificationsButton } from "@/components/editor/notifications-button";
 import { useWorkspace } from "@/components/editor/workspace-context";
+import { useTheme } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +26,15 @@ export function EditorNavbar() {
     toggleAiSidebar,
     isProjectSidebarOpen,
     toggleProjectSidebar,
+    openStarterTemplates,
   } = useWorkspace();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const ToggleIcon = isProjectSidebarOpen ? PanelLeftClose : PanelLeftOpen;
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
-    <header className="relative flex h-14 shrink-0 items-center justify-between border-b border-surface-border bg-base/80 px-3 backdrop-blur-xl">
+    <header className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b border-surface-border bg-base/80 px-3 backdrop-blur-xl">
       <div className="flex flex-1 items-center gap-3 min-w-0">
         <Button
           variant="ghost"
@@ -52,6 +60,29 @@ export function EditorNavbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+        >
+          <ThemeIcon className="size-4 text-copy-secondary" />
+        </Button>
+        <NotificationsButton />
+        {activeProject?.canEdit && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={openStarterTemplates}
+              className="gap-1.5 border border-surface-border/70 bg-surface/50 backdrop-blur-md"
+              aria-label="Open starter templates"
+            >
+              <LayoutTemplate className="h-3.5 w-3.5 text-copy-secondary" />
+              <span className="text-copy-primary">Templates</span>
+            </Button>
+          </>
+        )}
         {activeProject && (
           <>
             <Button

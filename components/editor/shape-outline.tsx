@@ -5,22 +5,40 @@ import type { CanvasNodeShape } from "@/types/canvas";
 interface ShapeOutlineProps {
   shape: CanvasNodeShape;
   color: string;
+  bg?: string;
   selected?: boolean;
 }
 
-const FILL = "rgba(20, 20, 28, 0.85)";
+const DEFAULT_FILL = "var(--canvas-shape-fill)";
 
-export function ShapeOutline({ shape, color, selected = false }: ShapeOutlineProps) {
-  const strokeWidth = selected ? 3 : 2;
-  const strokeOpacity = selected ? 1 : 0.7;
+/** CSS-border shapes cannot use `strokeOpacity`, so fold it into the color. */
+const withOpacity = (color: string, opacity: number): string => {
+  const hex = color.trim().replace("#", "");
+  if (hex.length !== 6 || !/^[0-9a-f]{6}$/i.test(hex)) return color;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
+export function ShapeOutline({
+  shape,
+  color,
+  bg,
+  selected = false,
+}: ShapeOutlineProps) {
+  const strokeWidth = selected ? 1.5 : 1;
+  const strokeOpacity = selected ? 0.9 : 0.55;
+  const fill = bg ?? DEFAULT_FILL;
+  const borderColor = withOpacity(color, strokeOpacity);
 
   if (shape === "rectangle") {
     return (
       <div
         className="absolute inset-0 rounded-md"
         style={{
-          border: `${strokeWidth}px solid ${color}`,
-          background: FILL,
+          border: `${strokeWidth}px solid ${borderColor}`,
+          background: fill,
         }}
       />
     );
@@ -31,8 +49,8 @@ export function ShapeOutline({ shape, color, selected = false }: ShapeOutlinePro
       <div
         className="absolute inset-0 rounded-full"
         style={{
-          border: `${strokeWidth}px solid ${color}`,
-          background: FILL,
+          border: `${strokeWidth}px solid ${borderColor}`,
+          background: fill,
         }}
       />
     );
@@ -44,15 +62,15 @@ export function ShapeOutline({ shape, color, selected = false }: ShapeOutlinePro
         className="absolute inset-0"
         style={{
           borderRadius: 9999,
-          border: `${strokeWidth}px solid ${color}`,
-          background: FILL,
+          border: `${strokeWidth}px solid ${borderColor}`,
+          background: fill,
         }}
       />
     );
   }
 
   const solid = {
-    fill: FILL,
+    fill,
     stroke: color,
     strokeWidth,
     strokeOpacity,
@@ -62,7 +80,7 @@ export function ShapeOutline({ shape, color, selected = false }: ShapeOutlinePro
     fill: "none",
     stroke: color,
     strokeWidth,
-    strokeOpacity,
+    strokeOpacity: strokeOpacity * 0.7,
   } as const;
 
   if (shape === "diamond") {

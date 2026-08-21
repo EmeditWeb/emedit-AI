@@ -30,12 +30,14 @@ interface ProjectRow {
 function toSummary(
   row: ProjectRow,
   ownedByCurrentUser: boolean,
+  isShared?: boolean,
 ): ProjectSummary {
   return {
     id: row.id,
     name: row.name,
     slug: slugify(row.name),
     ownedByCurrentUser,
+    isShared,
   };
 }
 
@@ -54,7 +56,15 @@ export async function getProjectsForCurrentUser(): Promise<ProjectListsResult> {
     prisma.project.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            collaborators: { where: { status: "ACTIVE" } },
+          },
+        },
+      },
     }),
     emails.length > 0
       ? prisma.project.findMany({
@@ -109,8 +119,10 @@ export async function getProjectsForCurrentUser(): Promise<ProjectListsResult> {
   });
 
   return {
-    owned: ownedRows.map((row) => toSummary(row, true)),
-    shared: sharedRows.map((row) => toSummary(row, false)),
+    owned: ownedRows.map((row) =>
+      toSummary(row, true, row._count.collaborators > 0),
+    ),
+    shared: sharedRows.map((row) => toSummary(row, false, true)),
     invitations,
   };
 }

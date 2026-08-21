@@ -3,12 +3,16 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { gateRequest } from "@/lib/rate-limit";
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`projects:${userId}`, "read");
+  if (denied) return denied;
 
   const projects = await prisma.project.findMany({
     where: { ownerId: userId },
@@ -31,6 +35,9 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`projects:${userId}`, "mutate");
+  if (denied) return denied;
 
   let body: CreateProjectBody;
   try {
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
         description,
       },
     });
-    revalidatePath("/editor");
+    revalidatePath("/editor", "layout");
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     if (

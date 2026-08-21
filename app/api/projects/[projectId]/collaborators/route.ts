@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { enrichCollaborators, getUserProfileById } from "@/lib/collaborators";
 import { prisma } from "@/lib/prisma";
 import { getCurrentIdentity } from "@/lib/project-access";
+import { gateRequest } from "@/lib/rate-limit";
 
 interface RouteContext {
   params: Promise<{ projectId: string }>;
@@ -18,6 +19,7 @@ interface PermissionContext {
     email: string;
     status: "PENDING" | "ACTIVE";
     canShare: boolean;
+    canEdit: boolean;
   } | null;
 }
 
@@ -46,7 +48,13 @@ async function resolvePermissions(
   if (!isOwner && identity.emails.length > 0) {
     const match = await prisma.projectCollaborator.findFirst({
       where: { projectId, email: { in: identity.emails } },
-      select: { id: true, email: true, status: true, canShare: true },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        canShare: true,
+        canEdit: true,
+      },
     });
     if (match) {
       callerCollaborator = {
@@ -54,6 +62,7 @@ async function resolvePermissions(
         email: match.email,
         status: match.status,
         canShare: match.canShare,
+        canEdit: match.canEdit,
       };
     }
   }
@@ -66,6 +75,9 @@ export async function GET(_request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "read");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
   const { project, permissions } = await resolvePermissions(
@@ -91,6 +103,7 @@ export async function GET(_request: Request, ctx: RouteContext) {
       email: true,
       status: true,
       canShare: true,
+      canEdit: true,
     },
   });
 
@@ -104,6 +117,7 @@ export async function GET(_request: Request, ctx: RouteContext) {
     email: row.email,
     status: row.status,
     canShare: row.canShare,
+    canEdit: row.canEdit,
     displayName: profiles[index].displayName,
     avatarUrl: profiles[index].avatarUrl,
   }));
@@ -115,11 +129,14 @@ export async function GET(_request: Request, ctx: RouteContext) {
     canShare:
       permissions.isOwner ||
       Boolean(permissions.callerCollaborator?.canShare),
+    canEdit:
+      permissions.isOwner || Boolean(permissions.callerCollaborator?.canEdit),
   });
 }
 
 interface InviteBody {
   email?: unknown;
+  canEdit?: unknown;
 }
 
 export async function POST(request: Request, ctx: RouteContext) {
@@ -127,6 +144,9 @@ export async function POST(request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
 
@@ -145,6 +165,15 @@ export async function POST(request: Request, ctx: RouteContext) {
       { status: 400 },
     );
   }
+
+  if (body.canEdit !== undefined && typeof body.canEdit !== "boolean") {
+    return NextResponse.json(
+      { error: "`canEdit` must be a boolean" },
+      { status: 400 },
+    );
+  }
+  // Default to view-only so an invite never silently confers write access.
+  const requestedCanEdit = body.canEdit === true;
 
   const { project, permissions } = await resolvePermissions(
     projectId,
@@ -171,8 +200,22 @@ export async function POST(request: Request, ctx: RouteContext) {
 
   try {
     const created = await prisma.projectCollaborator.create({
-      data: { projectId, email, status: "PENDING", canShare: false },
-      select: { id: true, email: true, status: true, canShare: true },
+      data: {
+        projectId,
+        email,
+        status: "PENDING",
+        canShare: false,
+        // Only an owner may hand out edit access at invite time; a
+        // collaborator with share rights can invite view-only people.
+        canEdit: permissions.isOwner ? requestedCanEdit : false,
+      },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        canShare: true,
+        canEdit: true,
+      },
     });
 
     const [profile] = await enrichCollaborators([email]);
@@ -183,6 +226,7 @@ export async function POST(request: Request, ctx: RouteContext) {
           email: created.email,
           status: created.status,
           canShare: created.canShare,
+          canEdit: created.canEdit,
           displayName: profile.displayName,
           avatarUrl: profile.avatarUrl,
         },
@@ -212,6 +256,9 @@ export async function DELETE(request: Request, ctx: RouteContext) {
   if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const denied = gateRequest(`collaborators:${identity.userId}`, "mutate");
+  if (denied) return denied;
 
   const { projectId } = await ctx.params;
 
