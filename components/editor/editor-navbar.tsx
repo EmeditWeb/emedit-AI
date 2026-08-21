@@ -3,16 +3,19 @@
 import { UserButton } from "@clerk/nextjs";
 import {
   LayoutTemplate,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { useState } from "react";
 
 import { ShareDialog } from "@/components/editor/share-dialog";
 import { NotificationsButton } from "@/components/editor/notifications-button";
 import { useWorkspace } from "@/components/editor/workspace-context";
+import { useTheme } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +30,8 @@ export function EditorNavbar() {
   } = useWorkspace();
   const [isShareOpen, setIsShareOpen] = useState(false);
   const ToggleIcon = isProjectSidebarOpen ? PanelLeftClose : PanelLeftOpen;
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === "dark" ? Sun : Moon;
 
   return (
     <header className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b border-surface-border bg-base/80 px-3 backdrop-blur-xl">
@@ -55,6 +60,14 @@ export function EditorNavbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+        >
+          <ThemeIcon className="size-4 text-copy-secondary" />
+        </Button>
         <NotificationsButton />
         {activeProject?.canEdit && (
           <>

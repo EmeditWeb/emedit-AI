@@ -8,9 +8,15 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Current Goal
 
-- Starter Template Library — importable prebuilt diagrams opened from the editor navbar, with lightweight SVG previews and canvas-replacing import.
+- Landing homepage — an elaborate, mobile-friendly marketing page at `/` telling the product story, with the existing auth pages staying as the login.
 
 ## Completed
+
+- Landing homepage (mobile-friendly, dark theme, driven by the project design tokens)
+  - The `/` route is now a public marketing homepage (was: hard redirect to `/sign-in` or `/editor`). `proxy.ts` matcher adds `/` to the public routes so signed-out visitors can browse it; signed-in users are server-detected via `auth()` and the CTAs point at `/editor` instead.
+  - Design language adapted from `accensa-dashboard.vercel.app`: near-black `bg-base`, glass surfaces (`bg-surface`,`bg-elevated`), 1px borders, uppercase tracking eyebrow chips, a bold display headline with a muted italic tail, dot-grid `bg-grid` backdrop utility, ambient brand/AI blur glows, hover lift + `active:scale-[0.98]` buttons, and IntersectionObserver scroll-reveal (`.landing-reveal` gives `prefers-reduced-motion` users a static page). Project tokens/rounding (`rounded-2xl`/`rounded-3xl`, `bg-brand`/`bg-ai`, `bg-grid` utility added to `globals.css`) instead of copying the reference's emerald/slate palette.
+  - Sections (`components/landing/`): `landing-navbar` (fixed glass nav, brand CTA, mobile hamburger + full-screen menu; client), `hero` (eyebrow, gradient headline "Design systems at the speed of thought.", dual CTAs, ambient glows + grid), `how-it-works` (4 numbered steps), `features` (9 feature cards mapped to real product capabilities), `canvas-showcase` (a live-looking node diagram reusing the real `ShapeOutline` + `NODE_COLORS` palette, SVG edges with boundary-anchored paths, browser chrome + "3 online" presence chip), `spec-showcase` (markdown `spec.md` code window + benefit checklist), `faq` (grid-rows accordion; client), `cta-band` (gradient panel + CTA), `landing-footer`. Shared `section-head` (eyebrow + title + description) and `reveal` (client, scroll reveal).
+  - Verified: `tsc --noEmit` + `eslint` clean; `npm run build` passes. Smoke-tested the built app — `/` returns 200 (no redirect) for a signed-out visitor and includes the hero copy; `/sign-in` still returns 200.
 
 - Room presence: collaborator avatars + live cursors (canvas view only)
   - `liveblocks.config.ts`: presence type now `{ cursor: { x, y } | null; thinking: boolean }` — `isThinking` renamed to `thinking` to match the presence contract. `cursor` is the key the React Flow cursors layer writes to and reads from.

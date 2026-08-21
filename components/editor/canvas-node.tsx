@@ -17,8 +17,8 @@ import { ShapeOutline } from "./shape-outline";
 
 const MIN_NODE_WIDTH = 60;
 const MIN_NODE_HEIGHT = 40;
-const HANDLE_COLOR = "rgba(0, 200, 212, 0.9)";
-const RESIZE_HANDLE_COLOR = "rgba(0, 200, 212, 0.8)";
+const HANDLE_COLOR = "var(--canvas-handle-border)";
+const RESIZE_HANDLE_COLOR = "var(--canvas-resize-border)";
 const HANDLE_DOT = 7;
 const HANDLE_HIT = 16;
 const FONT_SLOPE = 1 / 11;
@@ -41,7 +41,7 @@ const handleStyle = (selected: boolean) => ({
   borderRadius: "9999px",
   background: `radial-gradient(circle at center, ${HANDLE_COLOR} 0 ${
     HANDLE_DOT / 2
-  }px, rgba(8, 8, 12, 0.9) ${HANDLE_DOT / 2}px ${
+  }px, var(--canvas-handle-ring) ${HANDLE_DOT / 2}px ${
     HANDLE_DOT / 2 + 1
   }px, transparent ${HANDLE_DOT / 2 + 1}px)`,
   opacity: selected ? 1 : 0,

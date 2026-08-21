@@ -72,7 +72,7 @@ function CollaboratorAvatar({ collaborator }: { collaborator: Collaborator }) {
   return (
     <div
       title={collaborator.name}
-      className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[0.65rem] font-semibold text-white ring-2 ring-[#0a0a12]"
+      className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[0.65rem] font-semibold text-white ring-2 ring-(--canvas-avatar-ring)"
       style={{ backgroundColor: collaborator.color }}
     >
       {collaborator.avatar ? (
@@ -92,7 +92,8 @@ function CollaboratorAvatar({ collaborator }: { collaborator: Collaborator }) {
 function OverflowChip({ count }: { count: number }) {
   return (
     <div
-      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1b1b25] text-[0.65rem] font-semibold text-copy-secondary ring-2 ring-[#0a0a12]"
+      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-semibold text-copy-secondary ring-2 ring-(--canvas-avatar-ring)"
+      style={{ backgroundColor: "var(--canvas-overflow-bg)" }}
       title={`${count} more`}
     >
       +{count}

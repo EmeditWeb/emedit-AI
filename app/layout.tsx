@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { dark } from "@clerk/ui/themes";
+
+import { ThemeProvider } from "@/components/theme";
+import { ThemedClerkAppearance } from "@/components/themed-clerk-appearance";
 
 import "./globals.css";
 
@@ -26,32 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        theme: dark,
-        variables: {
-          colorBackground: "var(--bg-base)",
-          colorInput: "var(--bg-surface)",
-          colorInputForeground: "var(--text-primary)",
-          colorForeground: "var(--text-primary)",
-          colorMutedForeground: "var(--text-muted)",
-          colorPrimary: "var(--accent-primary)",
-          colorPrimaryForeground: "var(--bg-base)",
-          colorBorder: "var(--border-default)",
-          colorNeutral: "var(--text-primary)",
-          colorDanger: "var(--state-error)",
-          colorSuccess: "var(--state-success)",
-          colorWarning: "var(--state-warning)",
-          fontFamily: "var(--font-geist-sans)",
-        },
-      }}
-    >
-      <html
-        lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">{children}</body>
-      </html>
-    </ClerkProvider>
+    <ThemeProvider>
+      <ThemedClerkAppearance>
+        <html
+          lang="en"
+          className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
+        >
+          <body className="min-h-full flex flex-col">{children}</body>
+        </html>
+      </ThemedClerkAppearance>
+    </ThemeProvider>
   );
 }

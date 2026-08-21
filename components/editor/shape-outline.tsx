@@ -9,7 +9,7 @@ interface ShapeOutlineProps {
   selected?: boolean;
 }
 
-const DEFAULT_FILL = "rgba(20, 20, 28, 0.85)";
+const DEFAULT_FILL = "var(--canvas-shape-fill)";
 
 /** CSS-border shapes cannot use `strokeOpacity`, so fold it into the color. */
 const withOpacity = (color: string, opacity: number): string => {

@@ -58,6 +58,7 @@ import { StarterTemplatesModal } from "./starter-templates-modal";
 import { buildTemplateImportChanges } from "./template-import";
 import type { CanvasTemplate } from "./starter-templates";
 import { useWorkspace } from "./workspace-context";
+import { useTheme } from "@/components/theme";
 
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
@@ -111,6 +112,8 @@ function CanvasFlow({ canEdit }: CanvasFlowProps) {
   // UI honest so read-only users are not offered controls that would fail.
   const { isStarterTemplatesOpen, openStarterTemplates, closeStarterTemplates } =
     useWorkspace();
+
+  const { theme } = useTheme();
 
   const [ghost, setGhost] = useState<{
     shape: CanvasNodeShape;
@@ -482,7 +485,8 @@ function CanvasFlow({ canEdit }: CanvasFlowProps) {
 
   return (
     <div
-      className={`relative h-full w-full bg-[#0a0a12] ${CANVAS_FONT_VARIABLES}`}
+      className={`relative h-full w-full ${CANVAS_FONT_VARIABLES}`}
+      style={{ backgroundColor: "var(--canvas-bg)" }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragEnd={() => setGhost(null)}
@@ -508,17 +512,21 @@ function CanvasFlow({ canEdit }: CanvasFlowProps) {
         connectionRadius={40}
         zoomOnDoubleClick={false}
         fitView
-        colorMode="dark"
+        colorMode={theme}
         style={{ backgroundColor: "transparent" }}
       >
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1.5}
-          color="rgba(255,255,255,0.28)"
+          color="var(--canvas-dot)"
           style={{ backgroundColor: "transparent" }}
         />
-        <MiniMap pannable zoomable />
+        <MiniMap
+          pannable
+          zoomable
+          style={{ backgroundColor: "var(--canvas-bg)" }}
+        />
         <Cursors components={{ Cursor: CanvasCursor }} />
       </ReactFlow>
       <CanvasSkin />
@@ -642,7 +650,7 @@ function CanvasSkin() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, rgba(0,0,0,0.45) 100%)",
+            "radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, var(--canvas-vignette) 100%)",
         }}
       />
     </>
