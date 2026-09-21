@@ -2,11 +2,23 @@ import type { Edge, Node } from "@xyflow/react";
 
 export type CanvasNodeShape =
   | "rectangle"
-  | "diamond"
-  | "circle"
   | "pill"
-  | "cylinder"
+  | "circle"
+  | "triangle"
+  | "diamond"
   | "hexagon"
+  | "parallelogram"
+  | "trapezoid"
+  | "step"
+  | "cross"
+  | "star"
+  | "chevron"
+  | "cylinder"
+  | "document"
+  | "note"
+  | "cloud"
+  | "delay"
+  | "display"
   | "text";
 
 export interface CanvasNodeData extends Record<string, unknown> {
@@ -62,13 +74,59 @@ export const SHAPE_DEFAULT_SIZES: Record<
   { width: number; height: number }
 > = {
   rectangle: { width: 160, height: 80 },
-  diamond: { width: 140, height: 120 },
-  circle: { width: 100, height: 100 },
   pill: { width: 160, height: 60 },
-  cylinder: { width: 120, height: 100 },
+  circle: { width: 100, height: 100 },
+  triangle: { width: 120, height: 100 },
+  diamond: { width: 140, height: 120 },
   hexagon: { width: 140, height: 100 },
+  parallelogram: { width: 160, height: 80 },
+  trapezoid: { width: 150, height: 80 },
+  step: { width: 160, height: 80 },
+  cross: { width: 110, height: 110 },
+  star: { width: 120, height: 120 },
+  chevron: { width: 140, height: 80 },
+  cylinder: { width: 120, height: 100 },
+  document: { width: 150, height: 100 },
+  note: { width: 150, height: 110 },
+  cloud: { width: 170, height: 110 },
+  delay: { width: 150, height: 80 },
+  display: { width: 160, height: 100 },
   text: TEXT_DEFAULT_SIZE,
 };
+
+/** A draggable entry in the canvas shape library. */
+export interface ShapeDefinition {
+  shape: Exclude<CanvasNodeShape, "text">;
+  label: string;
+}
+
+/**
+ * The shape library, in panel order. General-purpose shapes first (mirroring
+ * draw.io's basic set), then the diagram-specific ones.
+ *
+ * `text` is deliberately absent — annotations are created by double-clicking
+ * the canvas rather than dragged from the panel.
+ */
+export const NODE_SHAPES: ShapeDefinition[] = [
+  { shape: "rectangle", label: "Rectangle" },
+  { shape: "pill", label: "Pill" },
+  { shape: "circle", label: "Circle" },
+  { shape: "triangle", label: "Triangle" },
+  { shape: "diamond", label: "Diamond" },
+  { shape: "hexagon", label: "Hexagon" },
+  { shape: "parallelogram", label: "Parallelogram" },
+  { shape: "trapezoid", label: "Trapezoid" },
+  { shape: "step", label: "Step" },
+  { shape: "cross", label: "Cross" },
+  { shape: "star", label: "Star" },
+  { shape: "chevron", label: "Chevron" },
+  { shape: "cylinder", label: "Cylinder" },
+  { shape: "document", label: "Document" },
+  { shape: "note", label: "Note" },
+  { shape: "cloud", label: "Cloud" },
+  { shape: "delay", label: "Delay" },
+  { shape: "display", label: "Display" },
+];
 
 export const SHAPE_DRAG_MIME = "application/x-emedit-shape";
 

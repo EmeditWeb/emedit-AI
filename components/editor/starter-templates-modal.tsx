@@ -15,6 +15,10 @@ import {
   CANVAS_TEMPLATES,
   type CanvasTemplate,
 } from "@/components/editor/starter-templates";
+import {
+  scalePathData,
+  SHAPE_GEOMETRY,
+} from "@/components/editor/shape-geometry";
 import type { CanvasNode } from "@/types/canvas";
 
 interface StarterTemplatesModalProps {
@@ -327,62 +331,33 @@ function ShapeGlyph({
     );
   }
 
-  if (data.shape === "diamond") {
-    const points = `${cx},${y} ${x + w},${cy} ${cx},${y + h} ${x},${cy}`;
-    return (
-      <g>
-        <polygon
-          points={points}
-          fill={fill}
-          fillOpacity={0.9}
-          stroke={stroke}
-          strokeWidth={1.5}
-        />
-        {label}
-      </g>
-    );
-  }
+  // Every other shape reuses the canvas geometry, scaled from its 0–100 box
+  // onto this node's rect. Scaling the points instead of nesting a viewBox
+  // keeps `strokeWidth` in the preview's own units, so the outline stays 1.5px
+  // no matter how small the node is.
+  const geometry = SHAPE_GEOMETRY[data.shape];
+  if (!geometry) return label;
 
-  if (data.shape === "hexagon") {
-    const inset = w * 0.12;
-    const points = `${x + inset},${y} ${x + w - inset},${y} ${x + w},${cy} ${x + w - inset},${y + h} ${x + inset},${y + h} ${x},${cy}`;
-    return (
-      <g>
-        <polygon
-          points={points}
-          fill={fill}
-          fillOpacity={0.9}
-          stroke={stroke}
-          strokeWidth={1.5}
-        />
-        {label}
-      </g>
-    );
-  }
+  const box = { x, y, width: w, height: h };
 
   return (
     <g>
-      <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        rx={Math.min(w, h) / 6}
+      <path
+        d={scalePathData(geometry.body, box)}
         fill={fill}
         fillOpacity={0.9}
         stroke={stroke}
         strokeWidth={1.5}
       />
-      <ellipse
-        cx={cx}
-        cy={y}
-        rx={w / 3}
-        ry={Math.min(7, h / 7)}
-        fill="none"
-        stroke={stroke}
-        strokeOpacity={0.6}
-        strokeWidth={1.2}
-      />
+      {geometry.detail ? (
+        <path
+          d={scalePathData(geometry.detail, box)}
+          fill="none"
+          stroke={stroke}
+          strokeOpacity={0.6}
+          strokeWidth={1.2}
+        />
+      ) : null}
       {label}
     </g>
   );

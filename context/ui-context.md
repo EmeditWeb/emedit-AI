@@ -76,16 +76,44 @@ Smooth-step path with an arrow marker. Default edge color: `#f8fafc`. Stroke wid
 
 ### Node Shapes
 
-6 supported shapes, defined in `types/canvas.ts` as `NODE_SHAPES`. Complex shapes (diamond, hexagon, cylinder) are rendered as inline SVGs rather than CSS borders.
+18 supported shapes. `types/canvas.ts` owns the ordered catalog (`NODE_SHAPES`, which drives the panel) and the per-shape default size (`SHAPE_DEFAULT_SIZES`); `components/editor/shape-geometry.ts` owns the outline paths.
 
-Shape outlines are hairlines — 1px at 55% of the accent color at rest, 1.5px at 90% when selected — so the fill and label carry the node, not its edge. The cylinder's cap line sits lighter still (70% of the outline). Selection shows no bounding rectangle: the `NodeResizer` lines are transparent, leaving only the corner handles.
+Only `rectangle`, `circle` and `pill` are drawn with CSS borders. Everything else is an SVG path authored on a normalised 0–100 box and stretched onto the node with `preserveAspectRatio="none"`, so one geometry definition serves the canvas, the shape panel and the template previews. Shapes with an internal line (a cylinder's cap, a note's fold) carry it as a separate lighter `detail` path. That geometry takes coordinates as consecutive pairs only — no arcs — because `scalePathData()` maps it onto other rects for the previews.
+
+Shape outlines are hairlines — 1px at 55% of the accent color at rest, 1.5px at 90% when selected — so the fill and label carry the node, not its edge. `withOpacity()` folds the alpha into the color so the CSS-border and SVG branches resolve identically, including for non-hex token colors. The detail line sits at 70% of the outline. Selection shows no bounding rectangle: the `NodeResizer` lines are transparent, leaving only the corner handles.
 
 - `rectangle` — default general-purpose node
-- `diamond` — decision / gateway
-- `circle` — event / endpoint
 - `pill` — service / process
-- `cylinder` — database / storage
+- `circle` — event / endpoint
+- `triangle` — marker / warning
+- `diamond` — decision / gateway
 - `hexagon` — external system / boundary
+- `parallelogram` — data / input-output
+- `trapezoid` — manual operation
+- `step` — process step (cut corner)
+- `cross` — plus / junction
+- `star` — highlight
+- `chevron` — direction
+- `cylinder` — database / storage
+- `document` — document / artifact
+- `note` — annotation (folded corner)
+- `cloud` — managed / external service
+- `delay` — queue / delay
+- `display` — screen / client
+
+`text` is the nineteenth entry but is not in `NODE_SHAPES`: annotations are created by double-clicking the canvas, not dragged from the panel.
+
+### Shape Panel
+
+The floating rack at the bottom-centre of the canvas. It has a **fixed footprint** (capped at `min(70vw, 540px)`) regardless of how many shapes the library holds — extra shapes slide horizontally inside it, and the content is alpha-masked at whichever edge is still overflowing so a hidden shape reads as "slide me". A vertical mouse wheel over the rack slides it horizontally.
+
+The button on the right of the rack opens the full library above it as a labelled 6-column grid (also draggable, collapsing on drag so the canvas is unobstructed). It dismisses on outside pointer or `Escape`, matching the font picker.
+
+Each shape is previewed with the same `ShapeOutline` the canvas renders, so the rack cannot show a shape the drop would not produce. When a shape already exists in the room it carries a small cyan count marker on its bottom-right corner; the count comes from the synced node list, so collaborators' drops move it too.
+
+### Inline Label Editing
+
+Double-clicking a node opens an editor that carries **no border, fill or shadow of its own** — typing shows the label in place rather than a box drawn inside the shape. The static label is unmounted while editing so the two cannot double up.
 
 ### Connection Handles
 

@@ -184,24 +184,28 @@ export function CanvasNodeRenderer({
           selected={selected}
         />
       ) : null}
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center px-3 text-center font-medium text-copy-primary"
-        style={{
-          color: textColor,
-          fontSize,
-          lineHeight: 1.2,
-          overflow: isTextNode ? "visible" : "hidden",
-          whiteSpace: "pre",
-          fontFamily,
-        }}
-      >
-        <span
-          className="pointer-events-none select-text cursor-text"
-          style={{ fontFamily, whiteSpace: "pre" }}
+      {/* Hidden while editing so the live textarea is the only text drawn —
+          otherwise the two overlap and the glyphs double up. */}
+      {!isEditing ? (
+        <div
+          className="pointer-events-none absolute inset-0 flex items-center justify-center px-3 text-center font-medium text-copy-primary"
+          style={{
+            color: textColor,
+            fontSize,
+            lineHeight: 1.2,
+            overflow: isTextNode ? "visible" : "hidden",
+            whiteSpace: "pre",
+            fontFamily,
+          }}
         >
-          {data.label}
-        </span>
-      </div>
+          <span
+            className="pointer-events-none select-text cursor-text"
+            style={{ fontFamily, whiteSpace: "pre" }}
+          >
+            {data.label}
+          </span>
+        </div>
+      ) : null}
       {isTextNode ? (
         <span
           ref={measureRef}
@@ -217,6 +221,8 @@ export function CanvasNodeRenderer({
           {data.label}
         </span>
       ) : null}
+      {/* Inline editor. Carries no border or fill of its own — typing shows the
+          label in place instead of a box drawn inside the shape. */}
       {isEditing ? (
         <div className="absolute inset-0 z-[5] flex items-center justify-center px-3">
           <textarea
@@ -230,7 +236,7 @@ export function CanvasNodeRenderer({
             onChange={(event) => onChangeLabel?.(id, event.target.value)}
             onBlur={() => onEndEdit?.(id, data.label)}
             onKeyDown={handleKeyDown}
-            className="no-scrollbar nopan nowheel nodrag block w-full resize-none overflow-hidden rounded-md border border-dashed border-brand/50 bg-surface/95 py-0 text-center text-copy-primary outline-none focus:border-brand"
+            className="no-scrollbar nopan nowheel nodrag block w-full resize-none overflow-hidden border-0 bg-transparent py-0 text-center outline-none focus:outline-none"
             style={{
               color: textColor,
               fontSize,

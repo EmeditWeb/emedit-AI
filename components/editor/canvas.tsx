@@ -348,6 +348,17 @@ function CanvasFlow({ canEdit }: CanvasFlowProps) {
     ],
   );
 
+  // Drives the count marker on each shape in the panel. Counts come from the
+  // synced node list, so a collaborator's drops move the marker too.
+  const shapeCounts = useMemo(() => {
+    const counts: Partial<Record<CanvasNodeShape, number>> = {};
+    for (const node of nodes) {
+      const { shape } = node.data;
+      counts[shape] = (counts[shape] ?? 0) + 1;
+    }
+    return counts;
+  }, [nodes]);
+
   const handleDragStart = useCallback(
     (event: DragEvent<HTMLButtonElement>, payload: ShapeDragPayload) => {
       const rect = event.currentTarget.getBoundingClientRect();
@@ -543,7 +554,11 @@ function CanvasFlow({ canEdit }: CanvasFlowProps) {
         onUndo={undo}
         onRedo={redo}
       />
-      {canEdit ? <ShapePanel onDragStart={handleDragStart} /> : <ViewOnlyBadge />}
+      {canEdit ? (
+        <ShapePanel counts={shapeCounts} onDragStart={handleDragStart} />
+      ) : (
+        <ViewOnlyBadge />
+      )}
       {ghost ? (
         <DragGhost
           shape={ghost.shape}
