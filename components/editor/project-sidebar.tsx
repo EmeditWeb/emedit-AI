@@ -2,19 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Check,
-  Loader2,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Check, Crown, Loader2, Pencil, Plus, Share2, Trash2, X } from "lucide-react";
+import { useState } from "react";
 
 import { useProjectActions } from "@/components/editor/project-actions-context";
+import { ShareDialog } from "@/components/editor/share-dialog";
 import { useWorkspace } from "@/components/editor/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +21,14 @@ interface ProjectSidebarProps {
 
 export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
   const { owned, shared, invitations, openCreate } = useProjectActions();
+
+  // Shared tab shows every collaborative workspace — ones you own (and shared
+  // with others) first, then the ones shared with you — with an owner badge to
+  // tell the two apart.
+  const sharedProjects = [
+    ...owned.filter((project) => project.isShared),
+    ...shared,
+  ];
 
   return (
     <aside
@@ -86,12 +86,15 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
         </TabsContent>
 
         <TabsContent value="shared" className="flex min-h-0 flex-1 flex-col">
-          {shared.length === 0 ? (
+          {sharedProjects.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
-              <EmptyState message="Nothing shared with you" />
+              <EmptyState message="Nothing shared yet" />
             </div>
           ) : (
-            <ProjectList projects={shared} />
+            <ProjectList
+              projects={sharedProjects}
+              context="shared"
+            />
           )}
         </TabsContent>
 
@@ -122,13 +125,14 @@ export function ProjectSidebar({ isOpen, onClose }: ProjectSidebarProps) {
 
 interface ProjectListProps {
   projects: ReadonlyArray<ProjectSummary>;
+  context?: "my" | "shared";
 }
 
-function ProjectList({ projects }: ProjectListProps) {
+function ProjectList({ projects, context = "my" }: ProjectListProps) {
   return (
     <ul className="flex flex-col gap-0.5 py-2">
       {projects.map((project) => (
-        <ProjectRow key={project.id} project={project} />
+        <ProjectRow key={project.id} project={project} context={context} />
       ))}
     </ul>
   );
@@ -136,37 +140,20 @@ function ProjectList({ projects }: ProjectListProps) {
 
 interface ProjectRowProps {
   project: ProjectSummary;
+  context?: "my" | "shared";
 }
 
-function ProjectRow({ project }: ProjectRowProps) {
+function ProjectRow({ project, context = "my" }: ProjectRowProps) {
   const { openRename, openDelete } = useProjectActions();
   const { activeProject } = useWorkspace();
   const isActive = activeProject?.id === project.id;
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
-    null,
-  );
-
-  const closeMenu = () => setMenuPos(null);
-
-  const toggleMenu = () => {
-    if (menuPos) {
-      closeMenu();
-      return;
-    }
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const menuWidth = 144;
-    setMenuPos({
-      top: rect.bottom + 4,
-      left: Math.max(8, rect.right - menuWidth),
-    });
-  };
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const showOwnerBadge = context === "shared" && project.ownedByCurrentUser;
 
   return (
     <li
       className={cn(
-        "group flex items-center gap-1 rounded-md pr-1 hover:bg-accent-dim",
+        "group flex items-center gap-0.5 rounded-md pr-1 hover:bg-accent-dim",
         isActive && "bg-accent-dim",
       )}
     >
@@ -191,116 +178,58 @@ function ProjectRow({ project }: ProjectRowProps) {
       </Link>
 
       {project.ownedByCurrentUser && (
-        <Button
-          ref={buttonRef}
-          variant="ghost"
-          size="icon-xs"
-          aria-label={`Actions for ${project.name}`}
-          aria-expanded={menuPos !== null}
-          onClick={toggleMenu}
-          className={cn(
-            "opacity-0 group-hover:opacity-100 aria-expanded:opacity-100",
-            menuPos && "opacity-100",
-          )}
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Share ${project.name}`}
+            onClick={() => setIsShareOpen(true)}
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <Share2 className="h-3.5 w-3.5 text-copy-secondary" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Rename ${project.name}`}
+            onClick={() => openRename(project)}
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <Pencil className="h-3.5 w-3.5 text-copy-secondary" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Delete ${project.name}`}
+            onClick={() => openDelete(project)}
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-copy-secondary" />
+          </Button>
+        </>
+      )}
+
+      {showOwnerBadge && (
+        <span
+          title="You are the owner of this workspace"
+          aria-label="You are the owner of this workspace"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-brand/25 bg-brand/10"
         >
-          <MoreHorizontal className="h-3.5 w-3.5 text-copy-secondary" />
-        </Button>
+          <Crown className="h-3 w-3 text-brand" strokeWidth={2} />
+        </span>
       )}
 
-      {menuPos && (
-        <RowMenuPortal
-          top={menuPos.top}
-          left={menuPos.left}
-          onClose={closeMenu}
-          onRename={() => {
-            closeMenu();
-            openRename(project);
-          }}
-          onDelete={() => {
-            closeMenu();
-            openDelete(project);
-          }}
-        />
-      )}
-    </li>
-  );
-}
-
-interface RowMenuPortalProps {
-  top: number;
-  left: number;
-  onClose: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-}
-
-function RowMenuPortal({
-  top,
-  left,
-  onClose,
-  onRename,
-  onDelete,
-}: RowMenuPortalProps) {
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0 z-[60]"
-        onClick={onClose}
-        aria-hidden
+      <ShareDialog
+        open={isShareOpen}
+        onOpenChange={setIsShareOpen}
+        projectId={project.id}
+        projectName={project.name}
+        ownedByCurrentUser={project.ownedByCurrentUser}
       />
-      <div
-        role="menu"
-        style={{ top, left }}
-        className="fixed z-[61] w-36 overflow-hidden rounded-md border border-surface-border bg-surface shadow-lg"
-      >
-        <MenuItem
-          icon={<Pencil className="h-3.5 w-3.5" />}
-          label="Rename"
-          onClick={onRename}
-        />
-        <MenuItem
-          icon={<Trash2 className="h-3.5 w-3.5" />}
-          label="Delete"
-          destructive
-          onClick={onDelete}
-        />
-      </div>
-    </>,
-    document.body,
-  );
-}
-
-interface MenuItemProps {
-  icon: React.ReactNode;
-  label: string;
-  destructive?: boolean;
-  onClick: () => void;
-}
-
-function MenuItem({ icon, label, destructive = false, onClick }: MenuItemProps) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-accent-dim",
-        destructive ? "text-destructive" : "text-copy-primary",
-      )}
-    >
-      {icon}
-      {label}
-    </button>
+    </li>
   );
 }
 
@@ -354,6 +283,13 @@ function InvitationRow({ invitation }: InvitationRowProps) {
           error?: string;
         };
         throw new Error(data.error ?? "Request failed");
+      }
+      // Accepting seeds the user straight into the shared workspace instead of
+      // dropping them back on the Invites list to open it from Shared.
+      if (action === "accept") {
+        router.push(`/editor/${invitation.projectId}`);
+        router.refresh();
+        return;
       }
       router.refresh();
     } catch (err) {

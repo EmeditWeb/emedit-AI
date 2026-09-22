@@ -163,15 +163,31 @@ function DeleteProjectDialog({ state }: ProjectDialogsProps) {
     <Dialog open={open} onOpenChange={(next) => (next ? null : close())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete project</DialogTitle>
+          <DialogTitle>Delete workspace</DialogTitle>
           <DialogDescription>
             Delete{" "}
             <span className="font-medium text-copy-primary">
-              {activeProject?.name ?? "this project"}
+              {activeProject?.name ?? "this workspace"}
             </span>
             ? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs leading-relaxed text-copy-secondary">
+          <p>
+            <span className="font-medium text-destructive">
+              Warning
+            </span>{" "}
+            — deleting removes the workspace permanently. Empty and pending
+            canvases are gone with it, and{" "}
+            <span className="font-medium text-copy-primary">
+              every collaborator loses access
+            </span>{" "}
+            to the project. Anyone with this workspace open right now sees a
+            deleted notice immediately; anyone offline simply won&apos;t find it
+            in their lists.
+          </p>
+        </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={close}>
@@ -183,7 +199,7 @@ function DeleteProjectDialog({ state }: ProjectDialogsProps) {
             disabled={isLoading}
             onClick={() => void submit()}
           >
-            {isLoading ? "Deleting…" : "Delete project"}
+            {isLoading ? "Deleting…" : "Delete workspace"}
           </Button>
         </DialogFooter>
       </DialogContent>

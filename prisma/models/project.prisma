@@ -30,6 +30,7 @@ model ProjectCollaborator {
   email     String
   status    CollaboratorStatus  @default(ACTIVE)
   canShare  Boolean             @default(false)
+  canEdit   Boolean             @default(false)
   createdAt DateTime            @default(now())
 
   project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)

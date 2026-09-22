@@ -12,6 +12,8 @@ export interface AccessibleProject {
   name: string;
   ownerId: string;
   ownedByCurrentUser: boolean;
+  /** Owners always edit; collaborators only when granted by the owner. */
+  canEdit: boolean;
 }
 
 export type ProjectAccessResult =
@@ -46,7 +48,7 @@ export async function getProjectForAccess(
       ownerId: true,
       collaborators: {
         where: { status: "ACTIVE" },
-        select: { email: true },
+        select: { email: true, canEdit: true },
       },
     },
   });
@@ -54,11 +56,11 @@ export async function getProjectForAccess(
   if (!project) return { kind: "denied" };
 
   const isOwner = project.ownerId === identity.userId;
-  const isActiveCollaborator = project.collaborators.some((entry) =>
+  const membership = project.collaborators.find((entry) =>
     identity.emails.includes(entry.email),
   );
 
-  if (!isOwner && !isActiveCollaborator) return { kind: "denied" };
+  if (!isOwner && !membership) return { kind: "denied" };
 
   return {
     kind: "ok",
@@ -67,6 +69,7 @@ export async function getProjectForAccess(
       name: project.name,
       ownerId: project.ownerId,
       ownedByCurrentUser: isOwner,
+      canEdit: isOwner || Boolean(membership?.canEdit),
     },
   };
 }

@@ -13,6 +13,8 @@ export interface ActiveProject {
   id: string;
   name: string;
   ownedByCurrentUser: boolean;
+  /** False for collaborators the owner has not granted edit access. */
+  canEdit: boolean;
 }
 
 interface WorkspaceContextValue {
@@ -24,6 +26,9 @@ interface WorkspaceContextValue {
   isProjectSidebarOpen: boolean;
   toggleProjectSidebar: () => void;
   closeProjectSidebar: () => void;
+  isStarterTemplatesOpen: boolean;
+  openStarterTemplates: () => void;
+  closeStarterTemplates: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -38,6 +43,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   );
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false);
   const [isProjectSidebarOpen, setIsProjectSidebarOpen] = useState(false);
+  const [isStarterTemplatesOpen, setIsStarterTemplatesOpen] = useState(false);
 
   const toggleAiSidebar = useCallback(() => {
     setIsAiSidebarOpen((prev) => !prev);
@@ -55,6 +61,14 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     setIsProjectSidebarOpen(false);
   }, []);
 
+  const openStarterTemplates = useCallback(() => {
+    setIsStarterTemplatesOpen(true);
+  }, []);
+
+  const closeStarterTemplates = useCallback(() => {
+    setIsStarterTemplatesOpen(false);
+  }, []);
+
   const value = useMemo(
     () => ({
       activeProject,
@@ -65,6 +79,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       isProjectSidebarOpen,
       toggleProjectSidebar,
       closeProjectSidebar,
+      isStarterTemplatesOpen,
+      openStarterTemplates,
+      closeStarterTemplates,
     }),
     [
       activeProject,
@@ -74,6 +91,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       isProjectSidebarOpen,
       toggleProjectSidebar,
       closeProjectSidebar,
+      isStarterTemplatesOpen,
+      openStarterTemplates,
+      closeStarterTemplates,
     ],
   );
 

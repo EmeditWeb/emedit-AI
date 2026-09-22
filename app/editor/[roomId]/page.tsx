@@ -26,6 +26,7 @@ export default async function EditorRoomPage({ params }: EditorRoomPageProps) {
         id: result.project.id,
         name: result.project.name,
         ownedByCurrentUser: result.project.ownedByCurrentUser,
+        canEdit: result.project.canEdit,
       }}
     />
   );

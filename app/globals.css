@@ -122,6 +122,20 @@
     --state-error: #ff4d4f;
     --state-success: #34d399;
     --state-warning: #fbbf24;
+    --grid-dot: rgba(255, 255, 255, 0.08);
+
+    /* Canvas-specific tokens (dark theme) */
+    --canvas-bg: #0a0a12;
+    --canvas-dot: rgba(255, 255, 255, 0.28);
+    --canvas-vignette: rgba(0, 0, 0, 0.45);
+    --canvas-shape-fill: rgba(20, 20, 28, 0.85);
+    --canvas-handle-ring: rgba(8, 8, 12, 0.9);
+    --canvas-handle-border: rgba(0, 200, 212, 0.9);
+    --canvas-resize-border: rgba(0, 200, 212, 0.8);
+    --canvas-avatar-ring: #0a0a12;
+    --canvas-overflow-bg: #1b1b25;
+
+    color-scheme: dark;
 }
 
 @layer base {
@@ -142,4 +156,94 @@
     &::-webkit-scrollbar {
         display: none;
     }
+}
+
+/* Dot-matrix backdrop for the landing page (draws with the theme accent). */
+@utility bg-grid {
+    background-image: radial-gradient(
+        circle,
+        var(--grid-dot) 1px,
+        transparent 1px
+    );
+    background-size: 28px 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-reveal {
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Global light theme. Setting these on `html.light` re-themes the whole app
+   through the token system: every surface/text/border/accent utility resolves
+   against these custom properties, so components switch automatically. The
+   editor canvas keeps its intentionally dark drawing surface (node fills,
+   glows) in both themes; the UI chrome around it adapts. */
+html.light {
+    --grid-dot: rgba(15, 17, 30, 0.08);
+    --bg-base: #f6f7f9;
+    --bg-surface: #ffffff;
+    --bg-elevated: #eef0f4;
+    --bg-subtle: #e4e7ee;
+    --border-default: #e2e5ed;
+    --border-subtle: #cdd2df;
+    --text-primary: #0f1119;
+    --text-secondary: #2c3242;
+    --text-muted: #5b6478;
+    --text-faint: #97a0b3;
+    --accent-primary: #009ba5;
+    --accent-primary-dim: rgba(0, 155, 165, 0.12);
+    --accent-ai: #6d5cf6;
+    --accent-ai-text: #5647ec;
+    --state-error: #e5484d;
+    --state-success: #0f9d6f;
+    --state-warning: #b5840a;
+
+    /* shadcn component tokens (light values) */
+    --background: oklch(0.985 0.003 260);
+    --foreground: oklch(0.18 0.01 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.01 260);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.18 0.01 260);
+    --primary: oklch(0.18 0.01 260);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.94 0.005 260);
+    --secondary-foreground: oklch(0.28 0.01 260);
+    --muted: oklch(0.95 0.005 260);
+    --muted-foreground: oklch(0.52 0.01 260);
+    --accent: oklch(0.94 0.005 260);
+    --accent-foreground: oklch(0.28 0.01 260);
+    --destructive: oklch(0.55 0.2 25);
+    --border: oklch(0.89 0.005 260);
+    --input: oklch(0.87 0.005 260);
+    --ring: oklch(0.75 0.14 195);
+    --chart-1: oklch(0.6 0.14 195);
+    --chart-2: oklch(0.6 0.18 270);
+    --chart-3: oklch(0.6 0.18 30);
+    --chart-4: oklch(0.6 0.15 150);
+    --chart-5: oklch(0.6 0.2 0);
+    --sidebar: oklch(0.985 0.003 260);
+    --sidebar-foreground: oklch(0.2 0.01 260);
+    --sidebar-primary: oklch(0.55 0.14 195);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.94 0.005 260);
+    --sidebar-accent-foreground: oklch(0.28 0.01 260);
+    --sidebar-border: oklch(0.91 0.004 260);
+    --sidebar-ring: oklch(0.8 0.02 250);
+
+    /* Canvas-specific tokens (light theme) */
+    --canvas-bg: #e8eaef;
+    --canvas-dot: rgba(0, 0, 0, 0.12);
+    --canvas-vignette: rgba(0, 0, 0, 0.18);
+    --canvas-shape-fill: rgba(240, 241, 244, 0.92);
+    --canvas-handle-ring: rgba(220, 222, 228, 0.9);
+    --canvas-handle-border: rgba(0, 155, 165, 0.9);
+    --canvas-resize-border: rgba(0, 155, 165, 0.8);
+    --canvas-avatar-ring: #e8eaef;
+    --canvas-overflow-bg: #d8dae2;
+
+    color-scheme: light;
 }

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Sparkles, Share2, FileText } from "lucide-react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
 interface AuthLayoutProps {
   children: ReactNode;
 }
